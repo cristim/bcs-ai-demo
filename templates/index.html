@@ -396,6 +396,8 @@
             if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
             return audioCtx;
         }
+        // Unlock audio on the first real gesture, before any reply arrives asynchronously
+        ['pointerdown', 'keydown'].forEach((ev) => document.addEventListener(ev, getAudioCtx, { once: true }));
 
         // Stands in for currentAudio while streamed audio plays: paused/ended flags,
         // pause() and 'ended'/'pause' events are all the other code relies on.
@@ -422,8 +424,19 @@
                 src.buffer = buf;
                 src.connect(ctx.destination);
                 // initial lead (and re-lead after an underrun) so the next chunk is ready in time
-                nextStart = Math.max(nextStart, ctx.currentTime + (nextStart === 0 ? 0.15 : 0.05));
+                const first = nextStart === 0;
+                nextStart = Math.max(nextStart, ctx.currentTime + (first ? 0.15 : 0.05));
                 src.start(nextStart);
+                if (first) {
+                    // Fire onstart when sound is really audible: the context may still be suspended
+                    const t0 = nextStart;
+                    const check = () => {
+                        if (sa.paused) return;
+                        if (ctx.state === 'running' && ctx.currentTime >= t0) sa.onstart?.();
+                        else requestAnimationFrame(check);
+                    };
+                    check();
+                }
                 nextStart += buf.duration;
                 sources.add(src);
                 src.onended = () => {
@@ -469,7 +482,7 @@
                         started = true;
                         if (currentAudio) currentAudio.pause();
                         currentAudio = player;
-                        setState('talking');
+                        player.onstart = () => setState('talking');
                     }
                     player.push(f32, sampleRate);
                 }
