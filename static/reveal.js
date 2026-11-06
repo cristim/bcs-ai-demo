@@ -360,7 +360,7 @@ function markTargets() {
     if (revealMode) {
         const set = (el, steps) => { if (el) { el.dataset.rv = steps; el.classList.add('rv-target'); } };
         const mic = document.getElementById('micBtn');
-        if (!mic.hidden) set(mic, '0,1');
+        if (!mic.hidden) set(mic, '0,1,2');
         const users = document.querySelectorAll('#chatBox .user-message');
         set(users[users.length - 1], '2');
         const ex = lastExchange;
