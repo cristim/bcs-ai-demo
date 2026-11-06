@@ -314,6 +314,24 @@
             fillList($('tipSafety'), s.safety);
             fillList($('tipLong'), s.long);
             fillList($('tipShort'), s.short);
+            showStageControls(s.id);
+        }
+
+        // Which controls each stage needs; the detective message can be prepared during the rules stage
+        const STAGE_CONTROLS = {
+            hook: ['quick'],
+            qa: ['quick'],
+            reveal: ['revealCtl'],
+            rules: ['rulesCtl', 'rulesToggle', 'prepare'],
+            detective: ['rulesCtl', 'prepare', 'play', 'answer', 'close']
+        };
+
+        function showStageControls(stageId) {
+            const show = STAGE_CONTROLS[stageId] || [];
+            ['quick', 'revealCtl', 'rulesCtl'].forEach((id) => { $(id).hidden = !show.includes(id); });
+            $('rulesToggle').hidden = !show.includes('rulesToggle');
+            document.querySelectorAll('[data-detective]').forEach((b) => { b.hidden = !show.includes(b.dataset.detective); });
+            $('detectiveStatus').hidden = !show.includes('prepare');
         }
 
         function renderStageList() {

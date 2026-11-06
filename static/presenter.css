@@ -112,3 +112,6 @@ button.primary { background: var(--accent); color: #1a1a1a; font-weight: 700; }
     .layout { grid-template-columns: 1fr; }
     body { font-size: 18px; }
 }
+
+/* Class display rules would otherwise override the hidden attribute */
+[hidden] { display: none !important; }
