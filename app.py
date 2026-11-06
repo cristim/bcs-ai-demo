@@ -14,8 +14,9 @@ app = Flask(__name__)
 
 # Configure Gemini
 genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
-# Using gemini-2.5-flash (stable) instead of 2.0-flash-exp for better rate limits
-model = genai.GenerativeModel('gemini-2.5-flash')
+# gemini-2.5-flash is closed to new API keys; flash-lite answers in ~1s and has free-tier quota
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-3.5-flash-lite')
+model = genai.GenerativeModel(GEMINI_MODEL)
 
 # Character prompts - easy to add more characters later!
 CHARACTERS = {
