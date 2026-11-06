@@ -47,6 +47,12 @@
             <section class="card" id="revealCtl">
                 <h3>Behind the scenes (display)</h3>
                 <button id="revealToggle" type="button">Show reveal panel</button>
+                <div class="quick-buttons">
+                    <button id="stepPrev" type="button">&larr; Prev step</button>
+                    <button id="stepNext" type="button">Next step &rarr;</button>
+                    <button id="stepOverview" type="button">Overview</button>
+                </div>
+                <div id="stepStatus" class="status off">Overview (all steps)</div>
             </section>
             <section class="card" id="rulesCtl">
                 <h3>Three rules and detective challenge (display)</h3>
@@ -265,7 +271,7 @@
 
         // Link to the display page (index.html). Messages:
         //   presenter -> display: {type:'ask', text}, {type:'ping'}, {type:'reveal', on},
-        //     {type:'rules', on}, {type:'detective', step:'prepare'|'play'|'answer'|'close'}
+        //     {type:'revealStep', step: 1-8|'next'|'prev'|null}, {type:'rules', on}, {type:'detective', step:'prepare'|'play'|'answer'|'close'}
         //   display -> presenter: {type:'status', busy, state, lastTimings}
         // Full list is documented at the top of index.html's script.
         const channel = new BroadcastChannel('spongebob-demo');
@@ -454,6 +460,7 @@
             $('rulesToggle').textContent = rulesOn ? 'Hide three rules' : 'Show three rules';
             renderDetective(m.detective);
             revealOn = !!m.reveal;
+            $('stepStatus').textContent = m.revealStep ? `Step ${m.revealStep} of ${m.revealSteps}: ${m.revealStepTitle}` : 'Overview (all steps)';
             $('revealToggle').textContent = revealOn ? 'Hide reveal panel' : 'Show reveal panel';
             renderStatus();
         };
@@ -463,6 +470,9 @@
             channel.postMessage({ type: 'reveal', on: revealOn });
             $('revealToggle').textContent = revealOn ? 'Hide reveal panel' : 'Show reveal panel';
         });
+
+        [['stepPrev', 'prev'], ['stepNext', 'next'], ['stepOverview', null]].forEach(([id, step]) =>
+            $(id).addEventListener('click', () => channel.postMessage({ type: 'revealStep', step })));
 
         $('rulesToggle').addEventListener('click', () => {
             channel.postMessage({ type: 'rules', on: !rulesOn });

@@ -11,25 +11,16 @@
         <div class="reveal-inner">
             <h2>🔍 Behind the scenes: how did SpongeBob answer?</h2>
             <p id="revealEmpty" class="reveal-note">Ask SpongeBob something first, then look inside his brain!</p>
-            <div id="revealBody" class="reveal-cols">
-                <section class="reveal-card">
-                    <h3>🧠 1. The TEXT brain: what to SAY</h3>
-                    <p class="reveal-label">Your question became numbers:</p>
-                    <p id="revealQuestion" class="reveal-quote"></p>
-                    <p class="reveal-label">The AI got secret instructions about being SpongeBob (the personality prompt):</p>
-                    <pre id="revealPrompt" class="reveal-prompt"></pre>
-                    <p class="reveal-explain">It predicts the answer word by word, like a super-fast guessing game.</p>
-                    <p class="reveal-time">Thinking time: <strong id="revealGemini"></strong></p>
-                </section>
-                <section class="reveal-card">
-                    <h3>🎙️ 2. The VOICE clone: HOW to say it</h3>
-                    <p class="reveal-label">These words were sent to the voice AI:</p>
-                    <p id="revealVoiceText" class="reveal-quote"></p>
-                    <p class="reveal-explain">It learned the number patterns of how SpongeBob's voice sounds, so it can say brand new words in his voice.</p>
-                    <p class="reveal-time">Voice-making time: <strong id="revealVoiceTime"></strong></p>
-                </section>
+            <div id="revealBody" hidden>
+                <div id="revealNav" class="reveal-nav" hidden>
+                    <button id="revealOverview" type="button">All steps</button>
+                    <button id="revealPrev" type="button">&larr; Back</button>
+                    <strong id="revealNavTitle"></strong>
+                    <button id="revealNext" type="button">Next &rarr;</button>
+                </div>
+                <div id="revealPipe" class="pipe"></div>
             </div>
-            <p class="reveal-note">Text AI predicts WHAT to say. Voice AI predicts HOW to say it. All with numbers and patterns! (press R or Esc to close)</p>
+            <p class="reveal-note">Text AI predicts WHAT to say. Voice AI predicts HOW to say it. All with numbers and patterns! Click a step to zoom in, arrow keys to move. (R or Esc to close)</p>
         </div>
     </div>
     <div class="container">
@@ -103,6 +94,7 @@
         </div>
     </div>
 
+    <script src="{{ url_for('static', filename='reveal.js') }}"></script>
     <script>
         const chatBox = document.getElementById('chatBox');
         const userInput = document.getElementById('userInput');
@@ -117,6 +109,7 @@
         //   {type:'ping'}           request a status broadcast
         //   {type:'reveal', on}     show/hide the behind-the-scenes panel
         //                           (also toggled by the R key here)
+        //   {type:'revealStep', step}  zoom the panel to one step: 1-8, 'next', 'prev', or null for the overview
         //   {type:'rules', on}      show/hide the three-rules card (click/Esc closes)
         //   {type:'detective', step:'prepare'|'play'|'answer'|'close'}
         //                           prepare = pre-generate the fake friend's voice
@@ -124,7 +117,7 @@
         //                           the right answers, close = hide
         // Display -> presenter:
         //   {type:'status', busy, state:'idle'|'thinking'|'talking',
-        //    reveal, rules, detective:'idle'|'preparing'|'ready'|'error', lastTimings:{gemini, voice}|null}   (seconds)
+        //    reveal, revealStep:1-8|null, revealStepTitle, revealSteps:8, rules, detective:'idle'|'preparing'|'ready'|'error', lastTimings:{gemini, voice}|null}   (seconds)
         const channel = new BroadcastChannel('spongebob-demo');
         let state = 'idle';
         let lastTimings = null;
@@ -132,7 +125,10 @@
         function broadcastStatus() {
             channel.postMessage({
                 type: 'status', busy: state !== 'idle', state, lastTimings,
-                reveal: !revealPanel.hidden, rules: !rulesCard.hidden, detective: detectiveState
+                reveal: !revealPanel.hidden,
+                revealStep: revealStep === null ? null : revealStep + 1,
+                revealStepTitle: revealStep === null ? null : stepTitle(revealStep),
+                revealSteps: REVEAL_STEPS.length, rules: !rulesCard.hidden, detective: detectiveState
             });
         }
 
@@ -146,6 +142,7 @@
             if (msg.type === 'ping') broadcastStatus();
             else if (msg.type === 'ask') askFromPresenter(msg.text);
             else if (msg.type === 'reveal') setReveal(msg.on);
+            else if (msg.type === 'revealStep') setRevealStep(msg.step);
             else if (msg.type === 'rules') setRules(msg.on !== false);
             else if (msg.type === 'detective') detectiveStep(msg.step);
         };
@@ -231,35 +228,14 @@
         });
         document.getElementById('detectiveClose').addEventListener('click', closeDetective);
 
-        // ---- Behind-the-scenes reveal ----
-        // Latest exchange, shown in the reveal panel
-        let lastExchange = null;
+        // ---- Behind-the-scenes reveal: see static/reveal.js ----
+        let lastExchange = null; // latest exchange, shown in the reveal panel
         const revealPanel = document.getElementById('revealPanel');
 
-        function setReveal(on) {
-            revealPanel.hidden = !on;
-            document.getElementById('revealBtn').setAttribute('aria-pressed', String(on));
-            if (on) renderReveal();
-            broadcastStatus();
-        }
-
-        function renderReveal() {
-            const ex = lastExchange;
-            const set = (id, v) => { document.getElementById(id).textContent = v; };
-            const secs = (v) => (v == null ? '?' : `${Number(v).toFixed(1)} seconds`);
-            const empty = !ex;
-            document.getElementById('revealEmpty').hidden = !empty;
-            document.getElementById('revealBody').hidden = empty;
-            if (empty) return;
-            set('revealQuestion', ex.question);
-            set('revealPrompt', ex.prompt || '(the secret instructions could not be loaded)');
-            set('revealGemini', secs(ex.gemini));
-            set('revealVoiceText', ex.voiceText);
-            set('revealVoiceTime', secs(ex.voice));
-        }
-
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') { setReveal(false); setRules(false); closeDetective(); userInput.blur(); return; }
+            if (e.key === 'Escape') {
+                if (!revealPanel.hidden && revealStep !== null) { setRevealStep(null); return; }
+                setReveal(false); setRules(false); closeDetective(); userInput.blur(); return; }
             if (e.target === userInput || e.ctrlKey || e.metaKey || e.altKey) return;
             if (e.key === 'r' || e.key === 'R') setReveal(revealPanel.hidden);
         });
@@ -290,6 +266,17 @@
             const pipelineStart = performance.now();
             setState('thinking');
             lastTimings = null;
+
+            const clipPromise = takeMicClip(message);
+            const ex = lastExchange = {
+                id: ++exchangeSeq, question: message, typed: !clipPromise, mic: undefined,
+                status: 'thinking', voiceStatus: 'pending', prompt: null, counts: null, gemini: null,
+                voiceText: null, voice: null, vd: null, voiceError: null, outBuf: null, qTokens: null
+            };
+            if (clipPromise) clipPromise.then((clip) => { ex.mic = clip; refreshReveal(); });
+            tokenizeText(message).then((t) => { ex.qTokens = t; refreshReveal(); });
+            loadVoiceprint();
+            refreshReveal();
 
             // Add user message to chat
             addMessage('You', message, 'user-message');
@@ -324,30 +311,41 @@
                     console.log(`⏱️  TEXT GENERATION: ${(textEnd - textStart).toFixed(0)}ms (Gemini: ${(data.timing?.gemini * 1000).toFixed(0)}ms)`);
 
                     // Always use cloned voice
-                    const voiceStart = performance.now();
-                    lastExchange = {
-                        question: message,
+                    Object.assign(ex, {
+                        status: 'ok',
                         prompt: data.personality_prompt,
+                        counts: data.token_counts,
                         gemini: data.timing?.gemini ?? null,
-                        voiceText: data.response,
-                        voice: null
-                    };
-                    const voiceTime = await speakWithClonedVoice(data.response);
+                        voiceText: data.response
+                    });
+                    refreshReveal();
+                    const voiceStart = performance.now();
+                    const voiceData = await speakWithClonedVoice(data.response, ex);
                     const voiceEnd = performance.now();
-                    lastExchange.voice = voiceTime;
-                    lastTimings = { gemini: lastExchange.gemini, voice: voiceTime };
-                    if (!revealPanel.hidden) renderReveal();
+                    const voiceTime = voiceData?.timing?.voice_generation ?? null;
+                    ex.voice = voiceTime;
+                    lastTimings = { gemini: ex.gemini, voice: voiceTime };
+                    refreshReveal();
                     setState('talking');
                     await waitForAudioEnd();
 
                     const totalTime = voiceEnd - pipelineStart;
                     console.log(`⏱️  TOTAL PIPELINE: ${totalTime.toFixed(0)}ms (${(totalTime/1000).toFixed(1)}s)`);
                 } else {
+                    ex.status = 'error';
+                    ex.prompt = data.personality_prompt;
+                    ex.voiceStatus = 'error';
+                    ex.voiceError = 'no answer to turn into speech';
+                    refreshReveal();
                     addMessage('Error', 'Oops! Something went wrong.', 'bot-message error');
                 }
 
             } catch (error) {
                 loadingDiv.remove();
+                ex.status = 'error';
+                ex.voiceStatus = 'error';
+                ex.voiceError = 'no answer to turn into speech';
+                refreshReveal();
                 addMessage('Error', 'Could not connect to server.', 'bot-message error');
                 console.error('Error:', error);
             } finally {
@@ -378,7 +376,7 @@
         }
 
         // Cloned voice function
-        async function speakWithClonedVoice(text) {
+        async function speakWithClonedVoice(text, ex) {
             try {
                 // Create audio element early (helps with autoplay policy)
                 currentAudio = new Audio();
@@ -423,10 +421,15 @@
                 currentAudio.play().catch(err => {
                     console.error('Play failed:', err);
                 });
-                return data.timing?.voice_generation ?? null;
+                ex.vd = data;
+                ex.voiceStatus = 'ok';
+                loadOutputSound(ex);
+                return data;
 
             } catch (error) {
                 console.error('Voice generation error:', error);
+                ex.voiceStatus = 'error';
+                ex.voiceError = error.message;
                 return null;
             }
         }
@@ -478,6 +481,7 @@
             recognition.onend = () => {
                 const wasListening = listening;
                 setListening(false);
+                stopMicRecording(transcript.trim());
                 if (wasListening && transcript.trim()) sendMessage();
             };
 
@@ -494,6 +498,7 @@
                 try {
                     recognition.start();
                     setListening(true);
+                    startMicRecording();
                 } catch (err) {
                     console.warn('Could not start speech recognition:', err);
                 }
