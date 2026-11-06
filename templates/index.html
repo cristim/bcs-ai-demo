@@ -119,6 +119,7 @@
 
         function setState(next) {
             state = next;
+            if (next === 'talking') lastExchange?.showAnswer?.();
             broadcastStatus();
         }
 
@@ -290,12 +291,15 @@
                 const data = await response.json();
                 const textEnd = performance.now();
 
-                // Remove loading message
-                loadingDiv.remove();
-
                 if (data.success) {
                     lastBotMessage = data.response;
-                    ex.botEl = addMessage('SpongeBob', data.response, 'bot-message');
+                    // Keep "Thinking..." until SpongeBob starts speaking, so text and voice arrive together
+                    ex.showAnswer = () => {
+                        if (ex.botEl) return;
+                        loadingDiv.remove();
+                        ex.botEl = addMessage('SpongeBob', data.response, 'bot-message');
+                        refreshReveal();
+                    };
 
                     console.log(`⏱️  TEXT GENERATION: ${(textEnd - textStart).toFixed(0)}ms (Gemini: ${(data.timing?.gemini * 1000).toFixed(0)}ms)`);
 
@@ -311,6 +315,7 @@
                     const voiceStart = performance.now();
                     const voiceData = await speakWithClonedVoice(data.response, ex);
                     const voiceEnd = performance.now();
+                    ex.showAnswer(); // no-op if speaking already showed it; shows the text if the voice failed
                     if (voiceData?.audio_url) addPlayButton(ex.botEl, voiceData.audio_url, 'Play SpongeBob again');
                     const voiceTime = voiceData?.timing?.voice_generation ?? null;
                     ex.voice = voiceTime;
@@ -322,6 +327,7 @@
                     const totalTime = voiceEnd - pipelineStart;
                     console.log(`⏱️  TOTAL PIPELINE: ${totalTime.toFixed(0)}ms (${(totalTime/1000).toFixed(1)}s)`);
                 } else {
+                    loadingDiv.remove();
                     ex.status = 'error';
                     ex.prompt = data.personality_prompt;
                     ex.voiceStatus = 'error';
@@ -548,6 +554,7 @@
 
                 // Load and play
                 currentAudio.load();
+                ex.showAnswer?.();
                 currentAudio.play().catch(err => {
                     console.error('Play failed:', err);
                 });
