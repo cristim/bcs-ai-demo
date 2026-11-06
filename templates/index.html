@@ -256,13 +256,17 @@
                 status: 'thinking', voiceStatus: 'pending', prompt: null, counts: null, gemini: null,
                 voiceText: null, voice: null, vd: null, voiceError: null, outBuf: null, qTokens: null
             };
-            if (clipPromise) clipPromise.then((clip) => { ex.mic = clip; refreshReveal(); });
+            if (clipPromise) clipPromise.then((clip) => {
+                ex.mic = clip;
+                if (clip) addPlayButton(ex.userEl, clip.url, 'Play my recording');
+                refreshReveal();
+            });
             tokenizeText(message).then((t) => { ex.qTokens = t; refreshReveal(); });
             loadVoiceprint();
             refreshReveal();
 
             // Add user message to chat
-            addMessage('You', message, 'user-message');
+            ex.userEl = addMessage('You', message, 'user-message');
             userInput.value = '';
 
             // Show loading
@@ -305,6 +309,7 @@
                     const voiceStart = performance.now();
                     const voiceData = await speakWithClonedVoice(data.response, ex);
                     const voiceEnd = performance.now();
+                    if (voiceData?.audio_url) addPlayButton(ex.botEl, voiceData.audio_url, 'Play SpongeBob again');
                     const voiceTime = voiceData?.timing?.voice_generation ?? null;
                     ex.voice = voiceTime;
                     lastTimings = { gemini: ex.gemini, voice: voiceTime };
@@ -344,6 +349,23 @@
             chatBox.appendChild(messageDiv);
             chatBox.scrollTop = chatBox.scrollHeight;
             return messageDiv;
+        }
+
+        function addPlayButton(messageDiv, url, label) {
+            if (!messageDiv) return;
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'play-btn';
+            btn.textContent = '▶';
+            btn.title = label;
+            btn.setAttribute('aria-label', label);
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation(); // don't pin a reveal popup when replaying
+                if (currentAudio && !currentAudio.paused) currentAudio.pause();
+                currentAudio = new Audio(url);
+                currentAudio.play().catch((err) => console.warn('Replay failed:', err));
+            });
+            messageDiv.appendChild(btn);
         }
 
         // Ask the server for cloned-voice audio; returns the JSON ({audio_url, timing})
