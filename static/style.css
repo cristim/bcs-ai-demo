@@ -379,3 +379,42 @@ header h1 {
 .reveal-time { font-size: 1.6em; margin-top: 16px; color: #7dffb4; }
 .reveal-note { font-size: 1.4em; text-align: center; margin: 20px 0; color: #cfd6ff; }
 @media (max-width: 900px) { .reveal-cols { grid-template-columns: 1fr; } }
+
+
+/* Full-screen cards: three rules and detective challenge */
+.overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 110;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    padding: 30px;
+    color: white;
+    overflow-y: auto;
+}
+.overlay[hidden] { display: none; }
+.overlay.rules { background: linear-gradient(135deg, #1b2a6b, #5b2a86); cursor: pointer; }
+.overlay.detective { background: linear-gradient(135deg, #0f3d3e, #1b2a6b); z-index: 120; }
+.overlay h2 { font-size: 2.8em; text-align: center; }
+.rules-list { display: flex; flex-direction: column; gap: 20px; max-width: 1200px; width: 100%; }
+.rule { display: flex; align-items: center; gap: 24px; background: rgba(255, 255, 255, 0.12); border-radius: 20px; padding: 22px 30px; }
+.rule-num { font-size: 4em; font-weight: bold; color: #ffd700; min-width: 1.2em; text-align: center; }
+.rule h3 { font-size: 2.4em; margin-bottom: 6px; }
+.rule p { font-size: 1.7em; }
+.overlay-hint { font-size: 1.1em; opacity: 0.7; }
+.overlay-close { position: absolute; top: 16px; right: 20px; font-size: 1.6em; background: rgba(255, 255, 255, 0.15); color: white; border: 0; border-radius: 50%; width: 52px; height: 52px; cursor: pointer; }
+.phone { background: white; color: #222; border-radius: 28px; padding: 30px 40px; text-align: center; max-width: 700px; width: 100%; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4); }
+.phone-title { font-size: 2.2em; font-weight: bold; }
+.phone-status { font-size: 1.5em; margin-top: 14px; color: #555; min-height: 1.2em; }
+.phone-status:not(:empty):not(.error)::after { content: ' ⏳'; }
+.phone-status.error { color: #c0392b; }
+.phone-play { margin-top: 16px; font-size: 1.8em; padding: 12px 28px; border: 0; border-radius: 14px; background: #667eea; color: white; cursor: pointer; }
+.phone-play[hidden] { display: none; }
+.detective-answers { max-width: 900px; text-align: center; }
+.detective-answers[hidden] { display: none; }
+.detective-answers ul { list-style: none; font-size: 2.2em; margin: 16px 0; display: flex; flex-direction: column; gap: 10px; }
+.detective-answers li::before { content: '✅ '; }
+.detective-line { font-size: 2.2em; font-weight: bold; color: #ffd700; }

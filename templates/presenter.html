@@ -48,6 +48,17 @@
                 <h3>Behind the scenes (display)</h3>
                 <button id="revealToggle" type="button">Show reveal panel</button>
             </section>
+            <section class="card" id="rulesCtl">
+                <h3>Three rules and detective challenge (display)</h3>
+                <div class="quick-buttons">
+                    <button id="rulesToggle" type="button">Show three rules</button>
+                    <button data-detective="prepare" type="button">1. Prepare voice message</button>
+                    <button data-detective="play" type="button">2. Play message</button>
+                    <button data-detective="answer" type="button">3. Show answers</button>
+                    <button data-detective="close" type="button">Close</button>
+                </div>
+                <div id="detectiveStatus" class="status off">Voice message: not prepared</div>
+            </section>
             <section class="card teaching">
                 <h3>Key teaching moment</h3>
                 <p id="teaching"></p>
@@ -253,11 +264,13 @@
         ];
 
         // Link to the display page (index.html). Messages:
-        //   presenter -> display: {type:'ask', text}, {type:'ping'}, {type:'reveal', on}
+        //   presenter -> display: {type:'ask', text}, {type:'ping'}, {type:'reveal', on},
+        //     {type:'rules', on}, {type:'detective', step:'prepare'|'play'|'answer'|'close'}
         //   display -> presenter: {type:'status', busy, state, lastTimings}
         // Full list is documented at the top of index.html's script.
         const channel = new BroadcastChannel('spongebob-demo');
         let revealOn = false;
+        let rulesOn = false;
         let displayBusy = false;
         let displaySeen = false;
 
@@ -437,6 +450,9 @@
             displaySeen = true;
             displayBusy = m.busy;
             displayState = m.state;
+            rulesOn = !!m.rules;
+            $('rulesToggle').textContent = rulesOn ? 'Hide three rules' : 'Show three rules';
+            renderDetective(m.detective);
             revealOn = !!m.reveal;
             $('revealToggle').textContent = revealOn ? 'Hide reveal panel' : 'Show reveal panel';
             renderStatus();
@@ -447,6 +463,27 @@
             channel.postMessage({ type: 'reveal', on: revealOn });
             $('revealToggle').textContent = revealOn ? 'Hide reveal panel' : 'Show reveal panel';
         });
+
+        $('rulesToggle').addEventListener('click', () => {
+            channel.postMessage({ type: 'rules', on: !rulesOn });
+        });
+
+        document.querySelectorAll('[data-detective]').forEach((b) => {
+            b.addEventListener('click', () =>
+                channel.postMessage({ type: 'detective', step: b.dataset.detective }));
+        });
+
+        function renderDetective(state) {
+            const labels = {
+                idle: ['Voice message: not prepared', 'off'],
+                preparing: ['Voice message: generating (about 30 s)...', 'busy'],
+                ready: ['Voice message: ready to play', 'ok'],
+                error: ['Voice message FAILED: is the voice server up? Retry Prepare.', 'busy']
+            };
+            const [text, cls] = labels[state] || labels.idle;
+            $('detectiveStatus').textContent = text;
+            $('detectiveStatus').className = 'status ' + cls;
+        }
 
         renderQuick();
         renderStatus();
