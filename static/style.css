@@ -4,6 +4,11 @@
     box-sizing: border-box;
 }
 
+/* Class display rules (grid/flex) would otherwise override the hidden attribute */
+[hidden] {
+    display: none !important;
+}
+
 body {
     font-family: 'Comic Sans MS', 'Arial', sans-serif;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
