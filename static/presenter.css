@@ -80,6 +80,26 @@ button.primary { background: var(--accent); color: #1a1a1a; font-weight: 700; }
     font-weight: 700;
 }
 
+/* Display status */
+.status { font-weight: 700; padding: 8px 12px; border-radius: 8px; background: var(--panel-2); margin-top: 6px; }
+.status.ok { color: var(--good); }
+.status.busy { color: var(--accent); }
+.status.off { color: var(--muted); font-weight: 400; }
+
+/* Quick questions */
+.quick-buttons { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.ask-form { display: flex; gap: 10px; }
+.ask-form input {
+    flex: 1;
+    font: inherit;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 2px solid var(--panel-2);
+    background: var(--bg);
+    color: var(--text);
+}
+.ask-form input:disabled { opacity: .4; }
+
 /* Detail */
 .points { padding-left: 1.2em; display: flex; flex-direction: column; gap: 10px; font-size: 1.15em; }
 .teaching { border-left: 6px solid var(--accent); background: #2a2f4d; }

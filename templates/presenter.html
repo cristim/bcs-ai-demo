@@ -18,6 +18,10 @@
                 </div>
             </section>
             <section class="card">
+                <h1>Display</h1>
+                <div id="status" class="status">Waiting for display page...</div>
+            </section>
+            <section class="card">
                 <h1>Grade</h1>
                 <div id="grades" class="grades"></div>
             </section>
@@ -31,6 +35,14 @@
             <section class="card">
                 <h2 id="stageTitle"></h2>
                 <ol id="points" class="points"></ol>
+            </section>
+            <section class="card" id="quick">
+                <h3>Quick questions (sent to the display)</h3>
+                <div id="quickButtons" class="quick-buttons"></div>
+                <form id="askForm" class="ask-form">
+                    <input id="askText" type="text" autocomplete="off" placeholder="Type a student's question...">
+                    <button id="askSend" type="submit" class="primary">Ask</button>
+                </form>
             </section>
             <section class="card teaching">
                 <h3>Key teaching moment</h3>
@@ -225,6 +237,25 @@
             }
         ];
 
+        // Quick questions: the opening line, then the script's example questions.
+        const QUICK_QUESTIONS = [
+            'Hi SpongeBob! We have students from BCS here to meet you!',
+            'What\'s your favorite food?',
+            'Where do you live?',
+            'Do you have any friends?',
+            'Can you do homework for me?',
+            'What\'s your job?',
+            'Are you a robot?'
+        ];
+
+        // Link to the display page (index.html). Messages:
+        //   presenter -> display: {type:'ask', text}, {type:'ping'}
+        //   display -> presenter: {type:'status', busy, state, lastTimings}
+        // Full list is documented at the top of index.html's script.
+        const channel = new BroadcastChannel('spongebob-demo');
+        let displayBusy = false;
+        let displaySeen = false;
+
         let grade = DEFAULT_GRADE;
         let selectedId = STAGES[0].id;
 
@@ -356,6 +387,57 @@
         });
 
         setInterval(tick, 250);
+
+        // ---- Quick questions ----
+        function ask(text) {
+            if (displayBusy || !text.trim()) return;
+            channel.postMessage({ type: 'ask', text: text.trim() });
+            if (displaySeen) displayBusy = true; // optimistic until the display's status arrives
+            renderStatus();
+        }
+
+        function renderQuick() {
+            const box = $('quickButtons');
+            box.replaceChildren();
+            QUICK_QUESTIONS.forEach((q, i) => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = i === 0 ? 'primary' : '';
+                b.textContent = q;
+                b.addEventListener('click', () => ask(q));
+                box.appendChild(b);
+            });
+        }
+
+        $('askForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (displayBusy) return;
+            ask($('askText').value);
+            $('askText').value = '';
+        });
+
+        function renderStatus() {
+            const labels = { idle: 'Ready', thinking: 'SpongeBob is thinking...', talking: 'SpongeBob is talking...' };
+            const el = $('status');
+            el.textContent = !displaySeen ? 'Waiting for display page... (open "/" on the projector)'
+                : displayBusy ? (labels[displayState] || 'Busy...') : labels.idle;
+            el.className = 'status' + (!displaySeen ? ' off' : displayBusy ? ' busy' : ' ok');
+            document.querySelectorAll('#quick button, #askText').forEach((c) => { c.disabled = displayBusy; });
+        }
+
+        let displayState = 'idle';
+        channel.onmessage = (e) => {
+            const m = e.data || {};
+            if (m.type !== 'status') return;
+            displaySeen = true;
+            displayBusy = m.busy;
+            displayState = m.state;
+            renderStatus();
+        };
+
+        renderQuick();
+        renderStatus();
+        channel.postMessage({ type: 'ping' });
 
         renderGrades();
         renderStageList();

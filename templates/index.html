@@ -56,12 +56,57 @@
         let lastBotMessage = "I'm ready! I'm ready! Ask me anything!";
         let currentAudio = null;
 
+        // ---- Presenter link (BroadcastChannel 'spongebob-demo') ----
+        // Presenter (/presenter) -> display (this page):
+        //   {type:'ask', text}      type text into the input and send it
+        //   {type:'ping'}           request a status broadcast
+        // Display -> presenter:
+        //   {type:'status', busy, state:'idle'|'thinking'|'talking',
+        //    lastTimings:{gemini, voice}|null}   (seconds)
+        const channel = new BroadcastChannel('spongebob-demo');
+        let state = 'idle';
+        let lastTimings = null;
+
+        function broadcastStatus() {
+            channel.postMessage({ type: 'status', busy: state !== 'idle', state, lastTimings });
+        }
+
+        function setState(next) {
+            state = next;
+            broadcastStatus();
+        }
+
+        channel.onmessage = (e) => {
+            const msg = e.data || {};
+            if (msg.type === 'ping') broadcastStatus();
+            else if (msg.type === 'ask') askFromPresenter(msg.text);
+        };
+
+        function askFromPresenter(text) {
+            if (state !== 'idle' || !String(text || '').trim()) return;
+            userInput.value = String(text).trim();
+            sendMessage();
+        }
+
+        // Resolves when the current reply audio has finished (or failed)
+        function waitForAudioEnd() {
+            const a = currentAudio;
+            if (!a || a.paused || a.ended) return Promise.resolve();
+            return new Promise((resolve) => {
+                ['ended', 'pause', 'error'].forEach((ev) =>
+                    a.addEventListener(ev, resolve, { once: true }));
+                setTimeout(resolve, 60000); // never leave the presenter locked out
+            });
+        }
+
         // Send message function
         async function sendMessage() {
             const message = userInput.value.trim();
             if (!message) return;
 
             const pipelineStart = performance.now();
+            setState('thinking');
+            lastTimings = null;
 
             // Add user message to chat
             addMessage('You', message, 'user-message');
@@ -97,8 +142,11 @@
 
                     // Always use cloned voice
                     const voiceStart = performance.now();
-                    await speakWithClonedVoice(data.response);
+                    const voiceTime = await speakWithClonedVoice(data.response);
                     const voiceEnd = performance.now();
+                    lastTimings = { gemini: data.timing?.gemini ?? null, voice: voiceTime };
+                    setState('talking');
+                    await waitForAudioEnd();
 
                     const totalTime = voiceEnd - pipelineStart;
                     console.log(`⏱️  TOTAL PIPELINE: ${totalTime.toFixed(0)}ms (${(totalTime/1000).toFixed(1)}s)`);
@@ -110,6 +158,8 @@
                 loadingDiv.remove();
                 addMessage('Error', 'Could not connect to server.', 'bot-message error');
                 console.error('Error:', error);
+            } finally {
+                setState('idle');
             }
         }
 
@@ -178,12 +228,14 @@
                     currentAudio.play().catch(err => {
                         console.error('Play failed:', err);
                     });
+                    return data.timing?.voice_generation ?? null;
                 } else {
                     throw new Error(data.error || 'Voice generation failed');
                 }
 
             } catch (error) {
                 console.error('Voice generation error:', error);
+                return null;
             }
         }
 
@@ -255,6 +307,8 @@
                 }
             });
         }
+
+        broadcastStatus();
 
         // Focus input on load
         userInput.focus();
