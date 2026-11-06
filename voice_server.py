@@ -3,12 +3,13 @@
 Persistent voice cloning server for SpongeBob AI demo
 Keeps model in memory for fast generation
 """
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 import torch
 from TTS.api import TTS
 import warnings
 import sys
 import os
+import wave
 
 # Suppress warnings
 warnings.filterwarnings('ignore')
@@ -46,6 +47,44 @@ VOICE_SAMPLE = os.getenv("VOICE_SAMPLE", "spongebob-sample-with-laugh.wav")  # O
 if not os.path.isfile(VOICE_SAMPLE):
     sys.exit(f"Voice sample not found: {VOICE_SAMPLE} (it is gitignored; provide it or set VOICE_SAMPLE)")
 
+xtts = tts.synthesizer.tts_model
+# Computed once: the "voice fingerprint" of the reference sample
+_gpt_latent, _speaker_emb = xtts.get_conditioning_latents(audio_path=[VOICE_SAMPLE])
+with wave.open(VOICE_SAMPLE, 'rb') as _w:
+    SAMPLE_SECONDS = _w.getnframes() / _w.getframerate()
+
+def tokenize(text):
+    ids = xtts.tokenizer.encode(text, lang='en')
+    pieces = [xtts.tokenizer.tokenizer.id_to_token(i) for i in ids]
+    return ids, pieces
+
+@app.route('/voiceprint', methods=['GET'])
+def voiceprint():
+    emb = _speaker_emb.flatten().cpu().tolist()
+    return jsonify({
+        'success': True,
+        'embedding': [round(v, 4) for v in emb],
+        'min': round(min(emb), 4),
+        'max': round(max(emb), 4),
+        'gpt_cond_latent_shape': list(_gpt_latent.shape),
+        'sample_seconds': round(SAMPLE_SECONDS, 2)
+    })
+
+@app.route('/reference-sample', methods=['GET'])
+def reference_sample():
+    return send_file(os.path.abspath(VOICE_SAMPLE), mimetype='audio/wav')
+
+@app.route('/tokenize', methods=['POST'])
+def tokenize_route():
+    text = (request.json or {}).get('text', '')
+    if not text:
+        return jsonify({'success': False, 'error': 'No text provided'}), 400
+    try:
+        ids, pieces = tokenize(text)
+        return jsonify({'success': True, 'token_ids': ids, 'tokens': pieces})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/generate', methods=['POST'])
 def generate():
     """Generate speech with cloned voice"""
@@ -70,10 +109,19 @@ def generate():
         elapsed = time.time() - start_time
         print(f"Voice generation took {elapsed:.2f} seconds", file=sys.stderr)
 
+        ids, pieces = tokenize(text)
+        with wave.open(output_path, 'rb') as w:
+            num_samples, sample_rate = w.getnframes(), w.getframerate()
+
         return jsonify({
             'success': True,
             'output_file': output_path,
-            'generation_time': elapsed
+            'generation_time': elapsed,
+            'token_ids': ids,
+            'tokens': pieces,
+            'sample_rate': sample_rate,
+            'num_samples': num_samples,
+            'duration': num_samples / sample_rate
         })
 
     except Exception as e:
