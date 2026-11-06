@@ -540,3 +540,14 @@ header h1 {
     .fish, .fish svg { animation: none; }
     .fish { left: var(--x); }
 }
+
+/* Crabs scuttling sideways along the seabed */
+.crab-walk { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+.crab { position: absolute; bottom: 4px; left: 0; width: var(--w); animation: crab-walk var(--d) ease-in-out var(--delay) infinite alternate; }
+.crab svg { display: block; width: 100%; height: auto; animation: crab-scuttle 0.22s ease-in-out infinite alternate; }
+@keyframes crab-walk { from { transform: translateX(var(--from)); } to { transform: translateX(var(--to)); } }
+@keyframes crab-scuttle { from { translate: 0 0; rotate: -3deg; } to { translate: 0 -3px; rotate: 3deg; } }
+@media (prefers-reduced-motion: reduce) {
+    .crab, .crab svg { animation: none; }
+    .crab { transform: translateX(var(--from)); }
+}
