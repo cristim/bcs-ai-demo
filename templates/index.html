@@ -41,6 +41,7 @@
                         placeholder="Type your message here..."
                         autocomplete="off"
                     >
+                    <button id="micBtn" type="button" aria-label="Talk to SpongeBob" title="Talk to SpongeBob" hidden>🎤</button>
                     <button id="sendBtn">Send</button>
                 </div>
             </div>
@@ -194,6 +195,63 @@
                 sendMessage();
             }
         });
+
+        const micBtn = document.getElementById('micBtn');
+        const SpeechRecognitionApi = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        if (SpeechRecognitionApi) {
+            const recognition = new SpeechRecognitionApi();
+            recognition.lang = 'en-US';
+            recognition.interimResults = true;
+            if ('processLocally' in recognition) recognition.processLocally = true;
+
+            let listening = false;
+            let transcript = '';
+
+            const setListening = (on) => {
+                listening = on;
+                micBtn.classList.toggle('listening', on);
+                micBtn.setAttribute('aria-pressed', String(on));
+            };
+
+            recognition.onresult = (event) => {
+                transcript = Array.from(event.results).map(r => r[0].transcript).join('');
+                userInput.value = transcript;
+            };
+
+            recognition.onerror = (event) => {
+                setListening(false);
+                if (event.error === 'not-allowed') {
+                    addMessage('Error', 'Please allow the microphone to talk to me!', 'bot-message error');
+                } else {
+                    console.warn('Speech recognition error:', event.error);
+                }
+            };
+
+            recognition.onend = () => {
+                const wasListening = listening;
+                setListening(false);
+                if (wasListening && transcript.trim()) sendMessage();
+            };
+
+            micBtn.hidden = false;
+            micBtn.addEventListener('click', () => {
+                if (listening) {
+                    recognition.stop();
+                    return;
+                }
+                // Don't talk over SpongeBob's reply
+                if (currentAudio && !currentAudio.paused && !currentAudio.ended) return;
+                transcript = '';
+                userInput.value = '';
+                try {
+                    recognition.start();
+                    setListening(true);
+                } catch (err) {
+                    console.warn('Could not start speech recognition:', err);
+                }
+            });
+        }
 
         // Focus input on load
         userInput.focus();
