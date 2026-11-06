@@ -270,7 +270,7 @@
         ];
 
         // Link to the display page (index.html). Messages:
-        //   presenter -> display: {type:'ask', text}, {type:'ping'}, {type:'reveal', on},
+        //   presenter -> display: {type:'ask', text}, {type:'typing', text}, {type:'ping'}, {type:'reveal', on},
         //     {type:'revealStep', step: 1-8|'next'|'prev'|null}, {type:'rules', on}, {type:'detective', step:'prepare'|'play'|'answer'|'close'}
         //   display -> presenter: {type:'status', busy, state, lastTimings}
         // Full list is documented at the top of index.html's script.
@@ -456,6 +456,10 @@
             if (displayBusy) return;
             ask($('askText').value);
             $('askText').value = '';
+        });
+        // Mirror the question into the display's input as it is typed, so the class sees it
+        $('askText').addEventListener('input', () => {
+            channel.postMessage({ type: 'typing', text: $('askText').value });
         });
 
         function renderStatus() {

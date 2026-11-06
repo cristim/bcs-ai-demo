@@ -90,6 +90,7 @@
         // ---- Presenter link (BroadcastChannel 'spongebob-demo') ----
         // Presenter (/presenter) -> display (this page):
         //   {type:'ask', text}      type text into the input and send it
+        //   {type:'typing', text}   mirror the presenter's draft question into the input (when idle)
         //   {type:'ping'}           request a status broadcast
         //   {type:'reveal', on}     switch reveal mode (outlines + hover popups) on/off
         //                           (also toggled by the R key here)
@@ -125,6 +126,7 @@
             const msg = e.data || {};
             if (msg.type === 'ping') broadcastStatus();
             else if (msg.type === 'ask') askFromPresenter(msg.text);
+            else if (msg.type === 'typing' && state === 'idle') userInput.value = String(msg.text || '');
             else if (msg.type === 'reveal') setReveal(msg.on);
             else if (msg.type === 'revealStep') setRevealStep(msg.step);
             else if (msg.type === 'rules') setRules(msg.on !== false);
