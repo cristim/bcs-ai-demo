@@ -41,7 +41,7 @@
                         placeholder="Type your message here..."
                         autocomplete="off"
                     >
-                    <button id="micBtn" type="button" aria-label="Talk to SpongeBob" title="Talk to SpongeBob" hidden>🎤</button>
+                    <button id="micBtn" type="button" aria-label="Talk to SpongeBob" title="Talk to SpongeBob (Space)" hidden>🎤</button>
                     <button id="sendBtn">Send</button>
                 </div>
             </div>
@@ -258,7 +258,7 @@
         }
 
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') { setReveal(false); setRules(false); closeDetective(); return; }
+            if (e.key === 'Escape') { setReveal(false); setRules(false); closeDetective(); userInput.blur(); return; }
             if (e.target === userInput || e.ctrlKey || e.metaKey || e.altKey) return;
             if (e.key === 'r' || e.key === 'R') setReveal(revealPanel.hidden);
         });
@@ -497,12 +497,17 @@
                     console.warn('Could not start speech recognition:', err);
                 }
             });
+
+            // Space toggles the mic unless typing; focused buttons already handle Space themselves
+            document.addEventListener('keydown', (e) => {
+                if (e.code !== 'Space' || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+                if (e.target.closest('input, textarea, button, select, [contenteditable]')) return;
+                e.preventDefault();
+                micBtn.click();
+            });
         }
 
         broadcastStatus();
-
-        // Focus input on load
-        userInput.focus();
 
         // Play welcome message on load (with user interaction fallback)
         window.addEventListener('load', () => {
