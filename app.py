@@ -112,7 +112,7 @@ def generate_voice():
         response = requests.post(
             'http://127.0.0.1:5001/generate',
             json={'text': text, 'output': output_file},
-            timeout=30
+            timeout=120  # first MPS generation includes ~60s of kernel warmup
         )
         http_time = time.time() - http_start
 
