@@ -92,34 +92,34 @@
                 id: 'hook', title: 'Hook & First Demo', range: '0:00-2:00', start: 0, end: 120,
                 points: [
                     'Ask: "How many of you have watched SpongeBob SquarePants?" Wait for hands.',
-                    'This is AI SpongeBob, not the real one. The AI learned to think, talk AND sound like him.',
-                    'Show the website and send the opening line (Hi SpongeBob! We have students from BCS here to meet you!). Let the audio play.',
-                    'How it works: the AI turns everything SpongeBob knows into NUMBERS, millions of them, linked like a giant puzzle.',
-                    'When you ask a question it looks at the number patterns and predicts what SpongeBob would say next. Like reading every script a thousand times, but with math.'
+                    '"Today we have something really cool: AI SpongeBob! This isn\'t the REAL SpongeBob, it\'s artificial intelligence. It learned to think, talk AND sound like him."',
+                    'Send the opening line (Hi SpongeBob! We have students from BCS here to meet you!) and let the audio play.',
+                    'React: "Pretty cool, right? Did that sound like him?"',
+                    'Tease: "Later I\'ll show you exactly how he does it. First, YOU get to talk to him!"'
                 ],
-                teaching: 'At about 1:30: AI uses numbers and patterns to predict words.',
+                teaching: 'This is not the real SpongeBob: it is an AI pretending to be him.',
                 safety: [
                     'Tech fails: play the pre-recorded audio file.',
                     'Tech fails: pivot to "What could go wrong with this technology?"',
                     'Tech fails: show screenshots of previous conversations.'
                 ],
-                long: ['Keep the intro short and go straight to the first question.'],
-                short: [],
+                long: ['Keep the intro short and go straight to the opening line.'],
+                short: ['Ask one more warm-up question yourself before handing over to the students.'],
                 grades: {
                     '1-2': {
                         points: [
                             'Ask: "Who has watched SpongeBob?" Wait for hands.',
-                            'Say: "This is a computer pretending to be SpongeBob." Real vs. FAKE.',
+                            'Say: "This is a computer pretending to be SpongeBob. Is it real or fake?"',
                             'Send the opening line and let the audio play.',
-                            'Guessing game: the computer played a guessing game with SpongeBob\'s words millions of times. Word by word, it builds the answer.'
+                            '"Next, you can talk to him!"'
                         ],
                         teaching: 'A computer pretending to be SpongeBob: real vs. fake.'
                     },
                     '5-6': {
                         points: [
-                            'Same hook, then ask: "How do you think this works?" Take a guess or two.',
-                            'Numbers and patterns: the AI predicts the next word from probabilities.',
-                            'Name it: this uses machine learning models called transformers and neural networks.'
+                            'Ask: "Who has watched SpongeBob?" Then: "This is AI SpongeBob, not the real one."',
+                            'Send the opening line and let the audio play.',
+                            'Ask: "How do you think this works?" Take a guess or two, but don\'t explain yet: "Keep that guess, we\'ll check it later!"'
                         ]
                     }
                 }
@@ -128,13 +128,12 @@
                 id: 'qa', title: 'Student Q&A', range: '2:00-5:00', start: 120, end: 300,
                 points: [
                     '"Here\'s the fun part: YOU ask SpongeBob questions! Raise your hand!"',
-                    'Take 4-5 questions. Read each aloud before sending so everyone hears it.',
+                    'Take 4-5 questions. Read each aloud before sending (or type it below so the class sees it appear).',
                     'Pick diverse questions: funny, serious, tricky. Help shy kids: "So you want to ask about...?"',
-                    'Let the voice play for every answer. React: "Ha! Did you hear that?"',
-                    'After 2-3 questions, mini-lesson (15 s): "We gave the AI a personality prompt, special instructions that guide how it predicts words. So it predicts words SpongeBob would use!"',
-                    'Then 2-3 more questions.'
+                    'Let the voice play for every answer. React: "Ha! Did you hear that?" "Wow, it even sounds excited!"',
+                    'After 2-3 questions: "Notice how he knows all about Gary, Patrick and the Krusty Krab? Hold that thought, we\'ll find out why in a minute."'
                 ],
-                teaching: 'After the 2nd question: the personality prompt guides the predictions.',
+                teaching: 'He knows things about his life: hold that thought for the reveal.',
                 safety: [
                     'Inappropriate question: "That\'s not a question SpongeBob would answer!"',
                     'Redirect: "Let\'s ask about his favorite activities instead."'
@@ -146,16 +145,16 @@
                         points: [
                             '"Who wants to ask SpongeBob something?" 3 questions max.',
                             'Read each question aloud, send it, and leave extra time for reactions.',
-                            'Mini-lesson in simple words: "We told the computer how SpongeBob talks, so it copies him."'
+                            '"Does he sound like the real SpongeBob? Remember, it\'s a computer!"'
                         ],
-                        teaching: 'We told the computer how SpongeBob talks, so it copies him.',
+                        teaching: 'Fun to talk to, but still a computer pretending.',
                         long: ['Stay at 3 questions.']
                     },
                     '5-6': {
                         points: [
                             '"Your turn: ask SpongeBob anything!" Let students type their own questions.',
                             'Take 4-5 questions: funny, serious, tricky.',
-                            'Mini-lesson: the personality prompt guides the predictions. The AI has two parts: one predicts what to SAY (text), another clones the VOICE. Both use number patterns.'
+                            'Try a tricky one ("Can you do my homework?") and ask the class: "Why did he answer like that?" Hold the answer for the reveal.'
                         ]
                     }
                 }
@@ -163,27 +162,32 @@
             {
                 id: 'reveal', title: 'Behind the Curtain', range: '5:00-6:00', start: 300, end: 360,
                 points: [
-                    '"Let me break down EXACTLY how this AI works."',
-                    'TEXT brain: your question is turned into numbers; the AI looks at millions of number patterns learned from SpongeBob data; it predicts word by word.',
-                    'VOICE clone: the AI studied SpongeBob\'s real voice recordings and learned the number patterns of how his voice sounds, so it can say NEW words in his voice.',
+                    '"Let me show you EXACTLY how this works." Turn reveal mode on (below) and pin step 1; use Next to walk through.',
+                    'Your voice to words to NUMBERS (steps 1-3): "The computer turns your voice into words, and every word into number codes."',
+                    'Secret instructions (step 4): "Remember how he knew about Gary and Patrick? We gave the AI a personality prompt: special instructions about being SpongeBob."',
+                    'Text brain (step 5): "It looks at millions of number patterns and predicts the answer word by word. Like reading every SpongeBob script a thousand times, but with math!"',
+                    'Voice clone (steps 6-8): "Another AI studied SpongeBob\'s real voice recordings. It learned 512 numbers that describe how he sounds, and turns the answer into thousands of sound numbers every second."',
                     'Wrap up: "TEXT AI predicts WHAT to say, VOICE AI predicts HOW to say it, all with numbers and patterns!"'
                 ],
-                teaching: 'At 6:00: two AI systems working together, a TEXT brain and a VOICE clone.',
-                safety: ['If the reveal panel will not open, just explain it out loud.'],
-                long: [],
-                short: ['Show the behind-the-scenes code and prompts.'],
+                teaching: 'Two AI systems working together: a TEXT brain that picks the words and a VOICE clone that says them.',
+                safety: ['If reveal mode will not open, explain the steps out loud.'],
+                long: ['Show only steps 4 (secret instructions) and 6 (voice fingerprint).'],
+                short: ['Open the "For grown-ups" notes and show the real numbers on each step.'],
                 grades: {
                     '1-2': {
                         points: [
-                            'Keep it very short: "One part of the computer thinks of the words. Another part makes the voice."',
+                            'Turn reveal mode on and show just two steps.',
+                            'Step 5: "One part of the computer guesses the words, like a guessing game it played millions of times."',
+                            'Step 6: "Another part learned to copy SpongeBob\'s voice."',
                             'Real vs. fake: this is not the real SpongeBob.'
                         ],
                         teaching: 'One part picks the words, one part makes the voice. Real vs. fake.'
                     },
                     '5-6': {
                         points: [
-                            'Text brain: a Large Language Model (LLM), trained on huge amounts of text, predicts the next word.',
-                            'Voice clone: a model trained on recordings predicts the right sound patterns.',
+                            'Walk through all 8 steps in reveal mode; check the guesses from the start.',
+                            'Text brain: a Large Language Model (LLM), trained on huge amounts of text, predicts the next word. The personality prompt steers it.',
+                            'Voice clone: a model trained on recordings predicts the right sound patterns from a 512-number voice fingerprint.',
                             'Both are machine learning: transformers and neural networks. Ask: "How do you think this could be misused?"'
                         ]
                     }
@@ -197,7 +201,8 @@
                     'Rule 1, QUESTION IT: just because it SOUNDS or LOOKS real doesn\'t mean it IS real.',
                     'Rule 2, CHECK IT: if a message asks for something weird (password, money, personal info), ALWAYS check face-to-face or on video call first.',
                     'Rule 3, TELL A PARENT OR TEACHER: if something online feels off, tell a grown-up right away.',
-                    'Tone: warm but serious, parent-to-kids, not lecturing.'
+                    'Show the rules on screen (button below). Tone: warm but serious, parent-to-kids, not lecturing.',
+                    'Before moving on, press "Prepare voice message" so the detective message is ready.'
                 ],
                 teaching: 'At 6:30: AI can be made to sound like ANYONE.',
                 safety: [
@@ -229,8 +234,8 @@
             {
                 id: 'detective', title: 'Detective Test & Closing', range: '7:00-8:00', start: 420, end: 480,
                 points: [
-                    'Detective challenge (30 s): "You get a voice message that sounds EXACTLY like your friend asking for your Roblox password. What do you do?"',
-                    'Take 1-2 quick answers and nod. Right answers: ask face-to-face at school; video call to check; tell my parents; don\'t share it.',
+                    'Detective challenge (30 s): press "Play message" so the class hears a SpongeBob voice asking for a Roblox password. "Imagine it sounded EXACTLY like your friend. What do you do?"',
+                    'Take 1-2 quick answers and nod, then press "Show answers": ask face-to-face at school; video call to check; tell my parents; don\'t share it.',
                     'If someone says "just send it": "Ah, that\'s the tricky part! Even if it SOUNDS like them, always verify first!"',
                     'Final thought (30 s): AI is cool and fun, but you are growing up with it, so be smart about it. Remember the three rules. If unsure, ask a parent or teacher.',
                     '"Anyone have a quick last question?" Take 1 if time, then: "Thanks everyone. Now you know the secret of AI SpongeBob!"'
