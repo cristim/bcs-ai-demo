@@ -469,18 +469,24 @@ header h1 {
 .detective-answers li::before { content: '✅ '; }
 .detective-line { font-size: 2.2em; font-weight: bold; color: #ffd700; }
 
-/* Replay buttons on chat bubbles */
+/* Replay buttons on chat bubbles: bottom-right corner, shown on hover */
+.message:has(.play-btn) { position: relative; }
 .play-btn {
-    margin-left: 10px;
-    width: 34px;
-    height: 34px;
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    width: 30px;
+    height: 30px;
     border: none;
     border-radius: 50%;
     background: #ffd700;
     color: #333;
-    font-size: 15px;
+    font-size: 13px;
     cursor: pointer;
-    vertical-align: middle;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    opacity: 0;
+    transition: opacity 0.15s, transform 0.15s;
 }
+.message:hover .play-btn,
+.play-btn:focus-visible { opacity: 1; }
 .play-btn:hover { transform: scale(1.1); }
