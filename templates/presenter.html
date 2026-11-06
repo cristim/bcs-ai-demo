@@ -46,13 +46,13 @@
             </section>
             <section class="card" id="revealCtl">
                 <h3>Behind the scenes (display)</h3>
-                <button id="revealToggle" type="button">Show reveal panel</button>
+                <button id="revealToggle" type="button">Turn reveal mode on</button>
                 <div class="quick-buttons">
                     <button id="stepPrev" type="button">&larr; Prev step</button>
                     <button id="stepNext" type="button">Next step &rarr;</button>
-                    <button id="stepOverview" type="button">Overview</button>
+                    <button id="stepOverview" type="button">Unpin</button>
                 </div>
-                <div id="stepStatus" class="status off">Overview (all steps)</div>
+                <div id="stepStatus" class="status off">No step pinned</div>
             </section>
             <section class="card" id="rulesCtl">
                 <h3>Three rules and detective challenge (display)</h3>
@@ -460,15 +460,15 @@
             $('rulesToggle').textContent = rulesOn ? 'Hide three rules' : 'Show three rules';
             renderDetective(m.detective);
             revealOn = !!m.reveal;
-            $('stepStatus').textContent = m.revealStep ? `Step ${m.revealStep} of ${m.revealSteps}: ${m.revealStepTitle}` : 'Overview (all steps)';
-            $('revealToggle').textContent = revealOn ? 'Hide reveal panel' : 'Show reveal panel';
+            $('stepStatus').textContent = m.revealStep ? `Step ${m.revealStep} of ${m.revealSteps}: ${m.revealStepTitle}` : 'No step pinned';
+            $('revealToggle').textContent = revealOn ? 'Turn reveal mode off' : 'Turn reveal mode on';
             renderStatus();
         };
 
         $('revealToggle').addEventListener('click', () => {
             revealOn = !revealOn;
             channel.postMessage({ type: 'reveal', on: revealOn });
-            $('revealToggle').textContent = revealOn ? 'Hide reveal panel' : 'Show reveal panel';
+            $('revealToggle').textContent = revealOn ? 'Turn reveal mode off' : 'Turn reveal mode on';
         });
 
         [['stepPrev', 'prev'], ['stepNext', 'next'], ['stepOverview', null]].forEach(([id, step]) =>

@@ -351,35 +351,7 @@ header h1 {
 }
 
 
-/* Behind-the-scenes reveal: docked above the chat, which shrinks to fit below it */
-body:has(#revealPanel:not([hidden])) {
-    flex-direction: column;
-    justify-content: flex-start;
-    gap: 14px;
-    height: 100vh;
-}
-body:has(#revealPanel:not([hidden])) .container {
-    flex: 1 1 0;
-    min-height: 0;
-    height: auto;
-    max-height: none;
-}
-.reveal {
-    width: 100%;
-    max-width: 1200px;
-    max-height: 55vh;
-    flex-shrink: 0;
-    background: rgba(20, 16, 50, 0.96);
-    color: white;
-    overflow-y: auto;
-    padding: 16px 22px;
-    border-radius: 20px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-}
-.reveal-inner { margin: 0 auto; }
-.reveal h2 { font-size: 1.5em; margin-bottom: 10px; text-align: center; }
-.reveal-label { font-size: 1em; margin-top: 8px; color: #cfd6ff; }
-.reveal-quote { font-size: 1.25em; font-weight: bold; margin-top: 4px; }
+/* Behind-the-scenes reveal mode: outlines, hover popups and a pinned card; none of it moves page content */
 .reveal-btn {
     position: absolute;
     top: 50%;
@@ -398,26 +370,36 @@ body:has(#revealPanel:not([hidden])) .container {
 @media (max-width: 800px) {
     .reveal-btn { position: static; transform: none; margin-top: 10px; }
 }
-.reveal-prompt {
-    font-family: inherit;
-    font-size: 1.05em;
-    white-space: pre-wrap;
-    background: rgba(0, 0, 0, 0.35);
-    border-radius: 10px;
-    padding: 12px;
-    margin-top: 6px;
-    max-height: 14vh;
+.reveal-mode .rv-target { outline: 3px dashed #ffd700; outline-offset: 3px; box-shadow: 0 0 14px 3px rgba(255, 215, 0, 0.55); cursor: help; }
+.voice-chip { display: none; font-size: 0.85em; }
+.reveal-mode .voice-chip { display: inline; }
+.rv-layer { position: fixed; inset: 0; z-index: 95; pointer-events: none; }
+.rv-badge { position: fixed; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; background: #ffd700; font-size: 14px; }
+.rv-pop {
+    position: fixed;
+    z-index: 100;
+    width: 380px;
+    max-width: calc(100vw - 16px);
+    max-height: 80vh;
     overflow-y: auto;
+    padding: 10px;
+    border-radius: 14px;
+    background: rgba(20, 16, 50, 0.97);
+    color: white;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+    text-align: left;
 }
-.reveal-explain { font-size: 1.05em; margin-top: 8px; }
-.reveal-time { font-size: 1.15em; margin-top: 8px; color: #7dffb4; }
-.reveal-note { font-size: 1em; text-align: center; margin: 8px 0 0; color: #cfd6ff; }
+.rv-pop[hidden], .rv-pin[hidden] { display: none; }
+.rv-pop .step + .step { margin-top: 10px; }
+.rv-pin { position: fixed; inset: 0; z-index: 105; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.55); }
+.rv-card { position: relative; width: min(980px, 94vw); max-height: 90vh; overflow-y: auto; padding: 18px 28px; border-radius: 20px; background: rgba(20, 16, 50, 0.98); color: white; }
+.rv-close { position: absolute; top: 10px; right: 12px; border: 0; background: transparent; color: white; font-size: 1.4em; cursor: pointer; }
+.rv-nav { display: flex; justify-content: center; align-items: center; gap: 14px; margin: 0 28px 10px; flex-wrap: wrap; }
+.rv-nav button { padding: 8px 16px; border-radius: 999px; border: 2px solid rgba(255, 255, 255, 0.7); background: rgba(255, 255, 255, 0.15); color: white; font: inherit; font-weight: bold; cursor: pointer; }
+.rv-nav button:disabled { opacity: 0.35; cursor: default; }
+.rv-hint { text-align: center; margin-top: 8px; color: #cfd6ff; font-size: 0.9em; }
 
-.reveal.is-focus { max-height: 70vh; }
-.pipe { display: flex; flex-wrap: wrap; gap: 22px 36px; margin-top: 8px; }
-.step { position: relative; flex: 1 1 240px; min-width: 0; background: rgba(255, 255, 255, 0.1); border-radius: 14px; padding: 12px 14px; cursor: pointer; }
-.step:hover { background: rgba(255, 255, 255, 0.16); }
-.step:not(:last-child)::after { content: '\279C'; position: absolute; right: -29px; top: 12px; color: #ffd700; font-size: 1.3em; }
+.step { background: rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 10px 12px; }
 .step-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .step-num { flex: none; width: 1.7em; height: 1.7em; display: grid; place-items: center; border-radius: 50%; background: #ffd700; color: #333; font-weight: bold; }
 .step h3 { font-size: 1.1em; color: #ffd700; }
@@ -425,32 +407,28 @@ body:has(#revealPanel:not([hidden])) .container {
 .step-note { font-style: italic; color: #cfd6ff; margin-top: 6px; }
 .step-vis canvas { display: block; width: 100%; height: 70px; margin-top: 6px; border-radius: 8px; background: #0d0a26; }
 .step-vis audio { width: 100%; height: 32px; margin-top: 6px; }
-.step-vis .reveal-quote { font-size: 1.05em; }
-.step-vis .reveal-time, .step-vis .reveal-label { font-size: 0.9em; margin-top: 6px; }
+.reveal-label { font-size: 0.9em; margin-top: 6px; color: #cfd6ff; }
+.reveal-quote { font-size: 1.05em; font-weight: bold; margin-top: 4px; }
+.reveal-time { font-size: 0.9em; margin-top: 6px; color: #7dffb4; }
+.reveal-prompt { font-family: inherit; font-size: 0.95em; white-space: pre-wrap; background: rgba(0, 0, 0, 0.35); border-radius: 10px; padding: 10px; margin-top: 6px; max-height: 30vh; overflow-y: auto; }
+.reveal-prompt[hidden] { display: none; }
 .reveal-toggle { padding: 2px 12px; border-radius: 999px; border: 1px solid #cfd6ff; background: transparent; color: white; font: inherit; cursor: pointer; }
-.chips { display: flex; flex-wrap: wrap; gap: 4px; max-height: 120px; overflow-y: auto; margin-top: 6px; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; max-height: 160px; overflow-y: auto; margin-top: 6px; }
 .chip { background: rgba(0, 0, 0, 0.35); border-radius: 6px; padding: 2px 6px; text-align: center; min-width: 1.8em; }
 .chip-t { display: block; font-family: monospace; }
 .chip-id { display: block; font-size: 0.75em; color: #7dffb4; }
 .gu { margin-top: 8px; font-size: 0.85em; color: #cfd6ff; }
 .gu summary { cursor: pointer; }
-.reveal-nav { display: flex; justify-content: center; align-items: center; gap: 14px; margin: 6px 0; flex-wrap: wrap; }
-.reveal-nav button { padding: 8px 16px; border-radius: 999px; border: 2px solid rgba(255, 255, 255, 0.7); background: rgba(255, 255, 255, 0.15); color: white; font: inherit; font-weight: bold; cursor: pointer; }
-.reveal-nav button:disabled { opacity: 0.35; cursor: default; }
-.is-focus .pipe { display: block; }
-.is-focus .step { display: none; }
-.is-focus .step.focus { display: block; max-width: 980px; margin: 0 auto; padding: 18px 28px; cursor: default; }
-.is-focus .step::after { display: none; }
-.is-focus .step h3 { font-size: 2em; }
-.is-focus .step-kid { font-size: 1.4em; }
-.is-focus .step-vis canvas { height: 190px; }
-.is-focus .step-vis audio { height: 44px; }
-.is-focus .step-vis .reveal-quote { font-size: 1.6em; }
-.is-focus .step-vis .reveal-time, .is-focus .step-vis .reveal-label { font-size: 1.15em; }
-.is-focus .chips { max-height: none; gap: 8px; }
-.is-focus .chip { font-size: 1.3em; padding: 4px 10px; }
-.is-focus .reveal-prompt { max-height: 30vh; }
-.is-focus .gu { font-size: 1em; }
+.rv-card .step { background: transparent; padding: 0; }
+.rv-card .step h3 { font-size: 2em; }
+.rv-card .step-kid { font-size: 1.4em; }
+.rv-card .step-vis canvas { height: 190px; }
+.rv-card .step-vis audio { height: 44px; }
+.rv-card .reveal-quote { font-size: 1.6em; }
+.rv-card .reveal-time, .rv-card .reveal-label { font-size: 1.15em; }
+.rv-card .chips { max-height: none; gap: 8px; }
+.rv-card .chip { font-size: 1.3em; padding: 4px 10px; }
+.rv-card .gu { font-size: 1em; }
 
 
 /* Full-screen cards: three rules and detective challenge */

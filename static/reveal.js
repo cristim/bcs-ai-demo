@@ -1,13 +1,10 @@
-// Behind-the-scenes panel: one numbered card per stage of the latest exchange.
-// Globals from index.html used lazily: lastExchange, revealPanel, broadcastStatus.
-// Step control (also via BroadcastChannel {type:'revealStep', step: 1..8 | 'next' | 'prev' | null}):
-// null = overview of all cards, otherwise one card shown large.
+// Reveal mode (button, R key, presenter): hover popups explain the latest exchange; a click pins a step as a large card.
+// Pin control (also via BroadcastChannel {type:'revealStep', step: 1..8 | 'next' | 'prev' | null}).
+// Globals from index.html used lazily: lastExchange, broadcastStatus.
 
-let revealStep = null; // 0-based index of the focused step, null = overview
 let exchangeSeq = 0;
 let voiceprint = null;
 let voiceprintBusy = false;
-const stepSigs = [];
 
 const mk = (tag, cls, text) => {
     const e = document.createElement(tag);
@@ -288,11 +285,6 @@ const REVEAL_STEPS = [
     }
 ];
 
-const stepTitle = (i) => {
-    const t = REVEAL_STEPS[i].title;
-    return t(lastExchange || {});
-};
-
 async function loadVoiceprint() {
     if (voiceprintBusy || (voiceprint && voiceprint.embedding)) return;
     voiceprintBusy = true;
@@ -315,88 +307,197 @@ async function loadOutputSound(ex) {
     if (ex === lastExchange) refreshReveal();
 }
 
-function buildCards(pipe) {
-    REVEAL_STEPS.forEach((s, i) => {
-        const card = mk('div', 'step');
-        card.tabIndex = 0;
-        const head = mk('div', 'step-head');
-        head.append(mk('span', 'step-num', i + 1), mk('h3'));
-        const det = mk('details', 'gu');
-        det.append(mk('summary', null, 'For grown-ups'), mk('div', 'gu-body'));
-        card.append(head, mk('p', 'step-kid'), mk('div', 'step-vis'), det);
-        card.addEventListener('click', (e) => {
-            if (revealStep === null && !e.target.closest('audio, button, summary, details, canvas')) setRevealStep(i + 1);
-        });
-        card.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && revealStep === null && e.target === card) setRevealStep(i + 1);
-        });
-        pipe.append(card);
+const NO_EX = { id: 0, typed: false, mic: undefined, status: 'thinking', voiceStatus: 'pending', question: '' };
+const exOrEmpty = () => lastExchange || NO_EX;
+const stepTitle = (i) => REVEAL_STEPS[i].title(exOrEmpty());
+const stepSig = (i, ex) => JSON.stringify([ex.id, REVEAL_STEPS[i].sig(ex), REVEAL_STEPS[i].title(ex)]);
+
+function buildStep(i, ex) {
+    const s = REVEAL_STEPS[i];
+    const card = mk('div', 'step');
+    const head = mk('div', 'step-head');
+    head.append(mk('span', 'step-num', i + 1), mk('h3', null, s.title(ex)));
+    const vis = mk('div', 'step-vis'), gu = mk('div', 'gu-body'), det = mk('details', 'gu');
+    det.append(mk('summary', null, 'For grown-ups'), gu);
+    card.append(head, mk('p', 'step-kid', s.kid(ex)), vis, det);
+    if (!ex.id && i !== 5) note(vis, 'Ask SpongeBob something first, then look again!');
+    else s.build(ex, vis, gu);
+    return card;
+}
+
+// Redraws only when the inputs changed, so a playing clip is not interrupted
+function fillBox(box, steps, ex) {
+    const sig = steps.map((i) => stepSig(i, ex)).join('|');
+    if (box._sig === sig) return;
+    box._sig = sig;
+    box.replaceChildren(...steps.map((i) => buildStep(i, ex)));
+}
+
+// ---- Reveal mode: hover popups, pinned card, badges. Nothing here moves page content. ----
+let revealMode = false;
+let revealStep = null; // pinned step, 0-based, null = none
+let hoverEl = null, showTimer = null, hideTimer = null;
+
+const popup = mk('div', 'rv-pop');
+const layer = mk('div', 'rv-layer');
+const pin = mk('div', 'rv-pin');
+const pinBody = mk('div', 'rv-body');
+const pinPrev = mk('button', null, '\u2190 Back');
+const pinNext = mk('button', null, 'Next \u2192');
+const pinClose = mk('button', 'rv-close', '\u2715');
+const pinTitle = mk('strong');
+popup.hidden = pin.hidden = true;
+[pinPrev, pinNext, pinClose].forEach((b) => { b.type = 'button'; });
+const pinNav = mk('div', 'rv-nav');
+pinNav.append(pinPrev, pinTitle, pinNext);
+const pinCard = mk('div', 'rv-card');
+pinCard.append(pinClose, pinNav, pinBody, mk('p', 'rv-hint', 'Left and right arrows move between steps, Esc closes'));
+pin.append(pinCard);
+document.body.append(layer, popup, pin);
+
+function markTargets() {
+    document.querySelectorAll('[data-rv]').forEach((e) => { e.removeAttribute('data-rv'); e.classList.remove('rv-target'); });
+    if (revealMode) {
+        const set = (el, steps) => { if (el) { el.dataset.rv = steps; el.classList.add('rv-target'); } };
+        const mic = document.getElementById('micBtn');
+        if (!mic.hidden) set(mic, '0,1');
+        const users = document.querySelectorAll('#chatBox .user-message');
+        set(users[users.length - 1], '2');
+        const ex = lastExchange;
+        if (ex && ex.botEl && ex.botEl.isConnected) {
+            set(ex.botEl, '3,4,6');
+            set(ex.botEl.querySelector('.voice-chip'), '7');
+        }
+        set(document.querySelector('.character-avatar'), '5');
+    }
+    placeBadges();
+}
+
+function placeBadges() {
+    layer.replaceChildren();
+    if (!revealMode || revealStep !== null) return;
+    const chat = document.getElementById('chatBox').getBoundingClientRect();
+    document.querySelectorAll('.rv-target').forEach((el) => {
+        const r = el.getBoundingClientRect();
+        if (!r.width || !r.height) return;
+        if (el.closest('#chatBox') && (r.bottom < chat.top || r.top > chat.bottom)) return;
+        const b = mk('span', 'rv-badge', '\uD83D\uDD0D');
+        b.style.left = `${r.right - 12}px`;
+        b.style.top = `${r.top - 12}px`;
+        layer.append(b);
     });
 }
 
-function renderReveal() {
-    const ex = lastExchange;
-    document.getElementById('revealEmpty').hidden = !!ex;
-    document.getElementById('revealBody').hidden = !ex;
-    if (!ex) return;
-    const pipe = document.getElementById('revealPipe');
-    if (!pipe.children.length) buildCards(pipe);
-    REVEAL_STEPS.forEach((s, i) => {
-        const sig = JSON.stringify([ex.id, s.sig(ex), s.title(ex)]);
-        if (stepSigs[i] === sig) return;
-        stepSigs[i] = sig;
-        const card = pipe.children[i];
-        const vis = card.querySelector('.step-vis'), gu = card.querySelector('.gu-body');
-        card.querySelector('h3').textContent = s.title(ex);
-        card.querySelector('.step-kid').textContent = s.kid(ex);
-        vis.replaceChildren();
-        gu.replaceChildren();
-        s.build(ex, vis, gu);
-    });
-    applyRevealFocus();
+function addVoiceChip(ex) {
+    if (!ex.botEl || ex.botEl.querySelector('.voice-chip')) return;
+    ex.botEl.append(' ', mk('span', 'voice-chip', '\uD83D\uDD0A voice'));
+    markTargets();
 }
 
-function applyRevealFocus() {
-    const focus = revealStep !== null;
-    revealPanel.classList.toggle('is-focus', focus);
-    const pipe = document.getElementById('revealPipe');
-    [...pipe.children].forEach((c, i) => c.classList.toggle('focus', i === revealStep));
-    document.getElementById('revealNav').hidden = !focus;
-    if (!focus) return;
-    document.getElementById('revealNavTitle').textContent = `Step ${revealStep + 1} of ${REVEAL_STEPS.length}: ${stepTitle(revealStep)}`;
-    document.getElementById('revealPrev').disabled = revealStep === 0;
-    document.getElementById('revealNext').disabled = revealStep === REVEAL_STEPS.length - 1;
+function placePopup(t) {
+    const r = t.getBoundingClientRect(), w = popup.offsetWidth, h = popup.offsetHeight;
+    let top = r.bottom + 8;
+    if (top + h > innerHeight - 8) top = r.top - h - 8;
+    top = Math.max(8, Math.min(top, innerHeight - h - 8));
+    popup.style.top = `${top}px`;
+    popup.style.left = `${Math.max(8, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - 8))}px`;
 }
 
-const refreshReveal = () => { if (!revealPanel.hidden) renderReveal(); };
+function showPopup(t) {
+    hoverEl = t;
+    popup._sig = null;
+    popup._steps = t.dataset.rv.split(',').map(Number);
+    fillBox(popup, popup._steps, exOrEmpty());
+    popup.hidden = false;
+    placePopup(t);
+}
 
-// step: 1-based number, 'next', 'prev' or null (overview)
+function hidePopup() {
+    clearTimeout(showTimer);
+    clearTimeout(hideTimer);
+    popup.hidden = true;
+    hoverEl = null;
+}
+
+const scheduleHide = () => {
+    clearTimeout(showTimer);
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(hidePopup, 350);
+};
+
+document.addEventListener('mouseover', (e) => {
+    if (!revealMode || revealStep !== null) return;
+    if (popup.contains(e.target)) { clearTimeout(hideTimer); return; }
+    const t = e.target.closest('[data-rv]');
+    if (!t) { scheduleHide(); return; }
+    clearTimeout(hideTimer);
+    if (t === hoverEl && !popup.hidden) return;
+    clearTimeout(showTimer);
+    showTimer = setTimeout(() => showPopup(t), 200);
+});
+
+// Synthetic clicks (the Space-to-mic shortcut) pass through untouched
+document.addEventListener('click', (e) => {
+    if (!revealMode || !e.isTrusted || pin.contains(e.target) || popup.contains(e.target)) return;
+    const t = e.target.closest('[data-rv]');
+    if (!t) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setRevealStep(Number(t.dataset.rv.split(',')[0]) + 1);
+}, true);
+
+function renderPin() {
+    fillBox(pinBody, [revealStep], exOrEmpty());
+    pinTitle.textContent = `Step ${revealStep + 1} of ${REVEAL_STEPS.length}: ${stepTitle(revealStep)}`;
+    pinPrev.disabled = revealStep === 0;
+    pinNext.disabled = revealStep === REVEAL_STEPS.length - 1;
+}
+
+function refreshReveal() {
+    if (!revealMode) return;
+    if (revealStep !== null) renderPin();
+    else if (!popup.hidden) { fillBox(popup, popup._steps, exOrEmpty()); placePopup(hoverEl); }
+    markTargets();
+}
+
+// step: 1-based number, 'next', 'prev' or null (unpin)
 function setRevealStep(step) {
+    const last = REVEAL_STEPS.length - 1;
     let next = null;
-    if (step === 'next') next = revealStep === null ? 0 : Math.min(REVEAL_STEPS.length - 1, revealStep + 1);
+    if (step === 'next') next = revealStep === null ? 0 : Math.min(last, revealStep + 1);
     else if (step === 'prev') next = revealStep === null ? null : Math.max(0, revealStep - 1);
-    else if (step != null) next = Math.max(0, Math.min(REVEAL_STEPS.length - 1, Number(step) - 1));
-    if (next !== null && !lastExchange) return;
+    else if (step != null) next = Math.max(0, Math.min(last, Number(step) - 1));
+    if (next !== null && !revealMode) setReveal(true);
     revealStep = next;
-    if (next !== null && revealPanel.hidden) { setReveal(true); return; }
-    if (!revealPanel.hidden) renderReveal();
+    hidePopup();
+    pin.hidden = next === null;
+    if (next !== null) renderPin();
+    placeBadges();
     broadcastStatus();
 }
 
 function setReveal(on) {
-    revealPanel.hidden = !on;
-    if (!on) revealStep = null;
-    document.getElementById('revealBtn').setAttribute('aria-pressed', String(on));
-    if (on) { renderReveal(); loadVoiceprint(); }
+    revealMode = !!on;
+    document.body.classList.toggle('reveal-mode', revealMode);
+    document.getElementById('revealBtn').setAttribute('aria-pressed', String(revealMode));
+    if (revealMode) loadVoiceprint();
+    else { revealStep = null; pin.hidden = true; hidePopup(); }
+    markTargets();
     broadcastStatus();
 }
 
-document.getElementById('revealPrev').addEventListener('click', () => setRevealStep('prev'));
-document.getElementById('revealNext').addEventListener('click', () => setRevealStep('next'));
-document.getElementById('revealOverview').addEventListener('click', () => setRevealStep(null));
+pinPrev.addEventListener('click', () => setRevealStep('prev'));
+pinNext.addEventListener('click', () => setRevealStep('next'));
+pinClose.addEventListener('click', () => setRevealStep(null));
+pin.addEventListener('click', (e) => { if (e.target === pin) setRevealStep(null); });
 
 document.addEventListener('keydown', (e) => {
-    if (revealPanel.hidden || e.ctrlKey || e.metaKey || e.altKey || e.target.closest('input, textarea, select, [contenteditable]')) return;
+    if (!revealMode || revealStep === null || e.ctrlKey || e.metaKey || e.altKey || e.target.closest('input, textarea, select, [contenteditable]')) return;
     if (e.key === 'ArrowRight') { e.preventDefault(); setRevealStep('next'); }
     else if (e.key === 'ArrowLeft') { e.preventDefault(); setRevealStep('prev'); }
 });
+
+addEventListener('resize', placeBadges);
+addEventListener('scroll', placeBadges, true);
+new MutationObserver(() => requestAnimationFrame(markTargets))
+    .observe(document.getElementById('chatBox'), { childList: true });

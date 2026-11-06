@@ -7,22 +7,6 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div id="revealPanel" class="reveal" hidden>
-        <div class="reveal-inner">
-            <h2>🔍 Behind the scenes: how did SpongeBob answer?</h2>
-            <p id="revealEmpty" class="reveal-note">Ask SpongeBob something first, then look inside his brain!</p>
-            <div id="revealBody" hidden>
-                <div id="revealNav" class="reveal-nav" hidden>
-                    <button id="revealOverview" type="button">All steps</button>
-                    <button id="revealPrev" type="button">&larr; Back</button>
-                    <strong id="revealNavTitle"></strong>
-                    <button id="revealNext" type="button">Next &rarr;</button>
-                </div>
-                <div id="revealPipe" class="pipe"></div>
-            </div>
-            <p class="reveal-note">Text AI predicts WHAT to say. Voice AI predicts HOW to say it. All with numbers and patterns! Click a step to zoom in, arrow keys to move. (R or Esc to close)</p>
-        </div>
-    </div>
     <div class="container">
         <header>
             <h1>🎭 Talk to SpongeBob AI!</h1>
@@ -107,9 +91,9 @@
         // Presenter (/presenter) -> display (this page):
         //   {type:'ask', text}      type text into the input and send it
         //   {type:'ping'}           request a status broadcast
-        //   {type:'reveal', on}     show/hide the behind-the-scenes panel
+        //   {type:'reveal', on}     switch reveal mode (outlines + hover popups) on/off
         //                           (also toggled by the R key here)
-        //   {type:'revealStep', step}  zoom the panel to one step: 1-8, 'next', 'prev', or null for the overview
+        //   {type:'revealStep', step}  pin the step card: 1-8, 'next', 'prev', or null to unpin
         //   {type:'rules', on}      show/hide the three-rules card (click/Esc closes)
         //   {type:'detective', step:'prepare'|'play'|'answer'|'close'}
         //                           prepare = pre-generate the fake friend's voice
@@ -125,7 +109,7 @@
         function broadcastStatus() {
             channel.postMessage({
                 type: 'status', busy: state !== 'idle', state, lastTimings,
-                reveal: !revealPanel.hidden,
+                reveal: revealMode,
                 revealStep: revealStep === null ? null : revealStep + 1,
                 revealStepTitle: revealStep === null ? null : stepTitle(revealStep),
                 revealSteps: REVEAL_STEPS.length, rules: !rulesCard.hidden, detective: detectiveState
@@ -228,18 +212,17 @@
         });
         document.getElementById('detectiveClose').addEventListener('click', closeDetective);
 
-        // ---- Behind-the-scenes reveal: see static/reveal.js ----
-        let lastExchange = null; // latest exchange, shown in the reveal panel
-        const revealPanel = document.getElementById('revealPanel');
+        // ---- Behind-the-scenes reveal mode: see static/reveal.js ----
+        let lastExchange = null; // latest exchange, explained in reveal mode
 
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                if (!revealPanel.hidden && revealStep !== null) { setRevealStep(null); return; }
+                if (revealMode && revealStep !== null) { setRevealStep(null); return; }
                 setReveal(false); setRules(false); closeDetective(); userInput.blur(); return; }
             if (e.target === userInput || e.ctrlKey || e.metaKey || e.altKey) return;
-            if (e.key === 'r' || e.key === 'R') setReveal(revealPanel.hidden);
+            if (e.key === 'r' || e.key === 'R') setReveal(!revealMode);
         });
-        document.getElementById('revealBtn').addEventListener('click', () => setReveal(revealPanel.hidden));
+        document.getElementById('revealBtn').addEventListener('click', () => setReveal(!revealMode));
 
         function askFromPresenter(text) {
             if (state !== 'idle' || !String(text || '').trim()) return;
@@ -306,7 +289,7 @@
 
                 if (data.success) {
                     lastBotMessage = data.response;
-                    addMessage('SpongeBob', data.response, 'bot-message');
+                    ex.botEl = addMessage('SpongeBob', data.response, 'bot-message');
 
                     console.log(`⏱️  TEXT GENERATION: ${(textEnd - textStart).toFixed(0)}ms (Gemini: ${(data.timing?.gemini * 1000).toFixed(0)}ms)`);
 
@@ -423,6 +406,7 @@
                 });
                 ex.vd = data;
                 ex.voiceStatus = 'ok';
+                addVoiceChip(ex);
                 loadOutputSound(ex);
                 return data;
 
