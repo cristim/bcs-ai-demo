@@ -526,3 +526,17 @@ header h1 {
 .seabed .sway.slow { animation-duration: 5.5s; }
 @keyframes sway { from { transform: rotate(-6deg); } to { transform: rotate(6deg); } }
 @media (prefers-reduced-motion: reduce) { .seabed .sway { animation: none; } }
+
+/* Fish swimming across the page behind the chat card */
+.fish-school { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+.fish { position: absolute; top: var(--y); left: 0; width: var(--w); animation: swim-right var(--d) linear var(--delay) infinite; }
+.fish.left { animation-name: swim-left; }
+.fish svg { display: block; width: 100%; height: auto; animation: fish-wiggle 0.9s ease-in-out infinite alternate; }
+.fish.left svg { transform: scaleX(-1); }
+@keyframes swim-right { from { transform: translateX(-160px); } to { transform: translateX(calc(100vw + 160px)); } }
+@keyframes swim-left { from { transform: translateX(calc(100vw + 160px)); } to { transform: translateX(-160px); } }
+@keyframes fish-wiggle { from { rotate: -4deg; translate: 0 -3px; } to { rotate: 4deg; translate: 0 3px; } }
+@media (prefers-reduced-motion: reduce) {
+    .fish, .fish svg { animation: none; }
+    .fish { left: var(--x); }
+}
