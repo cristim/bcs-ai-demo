@@ -44,6 +44,10 @@
                     <button id="askSend" type="submit" class="primary">Ask</button>
                 </form>
             </section>
+            <section class="card" id="revealCtl">
+                <h3>Behind the scenes (display)</h3>
+                <button id="revealToggle" type="button">Show reveal panel</button>
+            </section>
             <section class="card teaching">
                 <h3>Key teaching moment</h3>
                 <p id="teaching"></p>
@@ -249,10 +253,11 @@
         ];
 
         // Link to the display page (index.html). Messages:
-        //   presenter -> display: {type:'ask', text}, {type:'ping'}
+        //   presenter -> display: {type:'ask', text}, {type:'ping'}, {type:'reveal', on}
         //   display -> presenter: {type:'status', busy, state, lastTimings}
         // Full list is documented at the top of index.html's script.
         const channel = new BroadcastChannel('spongebob-demo');
+        let revealOn = false;
         let displayBusy = false;
         let displaySeen = false;
 
@@ -432,8 +437,16 @@
             displaySeen = true;
             displayBusy = m.busy;
             displayState = m.state;
+            revealOn = !!m.reveal;
+            $('revealToggle').textContent = revealOn ? 'Hide reveal panel' : 'Show reveal panel';
             renderStatus();
         };
+
+        $('revealToggle').addEventListener('click', () => {
+            revealOn = !revealOn;
+            channel.postMessage({ type: 'reveal', on: revealOn });
+            $('revealToggle').textContent = revealOn ? 'Hide reveal panel' : 'Show reveal panel';
+        });
 
         renderQuick();
         renderStatus();

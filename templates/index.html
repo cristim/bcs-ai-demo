@@ -48,6 +48,32 @@
         </div>
     </div>
 
+    <div id="revealPanel" class="reveal" hidden>
+        <div class="reveal-inner">
+            <h2>🔍 Behind the scenes: how did SpongeBob answer?</h2>
+            <p id="revealEmpty" class="reveal-note">Ask SpongeBob something first, then look inside his brain!</p>
+            <div id="revealBody" class="reveal-cols">
+                <section class="reveal-card">
+                    <h3>🧠 1. The TEXT brain: what to SAY</h3>
+                    <p class="reveal-label">Your question became numbers:</p>
+                    <p id="revealQuestion" class="reveal-quote"></p>
+                    <p class="reveal-label">The AI got secret instructions about being SpongeBob (the personality prompt):</p>
+                    <pre id="revealPrompt" class="reveal-prompt"></pre>
+                    <p class="reveal-explain">It predicts the answer word by word, like a super-fast guessing game.</p>
+                    <p class="reveal-time">Thinking time: <strong id="revealGemini"></strong></p>
+                </section>
+                <section class="reveal-card">
+                    <h3>🎙️ 2. The VOICE clone: HOW to say it</h3>
+                    <p class="reveal-label">These words were sent to the voice AI:</p>
+                    <p id="revealVoiceText" class="reveal-quote"></p>
+                    <p class="reveal-explain">It learned the number patterns of how SpongeBob's voice sounds, so it can say brand new words in his voice.</p>
+                    <p class="reveal-time">Voice-making time: <strong id="revealVoiceTime"></strong></p>
+                </section>
+            </div>
+            <p class="reveal-note">Text AI predicts WHAT to say. Voice AI predicts HOW to say it. All with numbers and patterns! (click or press Esc to close)</p>
+        </div>
+    </div>
+
     <script>
         const chatBox = document.getElementById('chatBox');
         const userInput = document.getElementById('userInput');
@@ -60,15 +86,20 @@
         // Presenter (/presenter) -> display (this page):
         //   {type:'ask', text}      type text into the input and send it
         //   {type:'ping'}           request a status broadcast
+        //   {type:'reveal', on}     show/hide the behind-the-scenes panel
+        //                           (also toggled by the R key here)
         // Display -> presenter:
         //   {type:'status', busy, state:'idle'|'thinking'|'talking',
-        //    lastTimings:{gemini, voice}|null}   (seconds)
+        //    reveal, lastTimings:{gemini, voice}|null}   (seconds)
         const channel = new BroadcastChannel('spongebob-demo');
         let state = 'idle';
         let lastTimings = null;
 
         function broadcastStatus() {
-            channel.postMessage({ type: 'status', busy: state !== 'idle', state, lastTimings });
+            channel.postMessage({
+                type: 'status', busy: state !== 'idle', state, lastTimings,
+                reveal: !revealPanel.hidden
+            });
         }
 
         function setState(next) {
@@ -80,7 +111,41 @@
             const msg = e.data || {};
             if (msg.type === 'ping') broadcastStatus();
             else if (msg.type === 'ask') askFromPresenter(msg.text);
+            else if (msg.type === 'reveal') setReveal(msg.on);
         };
+
+        // ---- Behind-the-scenes reveal ----
+        // Latest exchange, shown in the reveal panel
+        let lastExchange = null;
+        const revealPanel = document.getElementById('revealPanel');
+
+        function setReveal(on) {
+            revealPanel.hidden = !on;
+            if (on) renderReveal();
+            broadcastStatus();
+        }
+
+        function renderReveal() {
+            const ex = lastExchange;
+            const set = (id, v) => { document.getElementById(id).textContent = v; };
+            const secs = (v) => (v == null ? '?' : `${Number(v).toFixed(1)} seconds`);
+            const empty = !ex;
+            document.getElementById('revealEmpty').hidden = !empty;
+            document.getElementById('revealBody').hidden = empty;
+            if (empty) return;
+            set('revealQuestion', ex.question);
+            set('revealPrompt', ex.prompt || '(the secret instructions could not be loaded)');
+            set('revealGemini', secs(ex.gemini));
+            set('revealVoiceText', ex.voiceText);
+            set('revealVoiceTime', secs(ex.voice));
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.target === userInput || e.ctrlKey || e.metaKey || e.altKey) return;
+            if (e.key === 'r' || e.key === 'R') setReveal(revealPanel.hidden);
+            else if (e.key === 'Escape') setReveal(false);
+        });
+        revealPanel.addEventListener('click', () => setReveal(false));
 
         function askFromPresenter(text) {
             if (state !== 'idle' || !String(text || '').trim()) return;
@@ -142,9 +207,18 @@
 
                     // Always use cloned voice
                     const voiceStart = performance.now();
+                    lastExchange = {
+                        question: message,
+                        prompt: data.personality_prompt,
+                        gemini: data.timing?.gemini ?? null,
+                        voiceText: data.response,
+                        voice: null
+                    };
                     const voiceTime = await speakWithClonedVoice(data.response);
                     const voiceEnd = performance.now();
-                    lastTimings = { gemini: data.timing?.gemini ?? null, voice: voiceTime };
+                    lastExchange.voice = voiceTime;
+                    lastTimings = { gemini: lastExchange.gemini, voice: voiceTime };
+                    if (!revealPanel.hidden) renderReveal();
                     setState('talking');
                     await waitForAudioEnd();
 

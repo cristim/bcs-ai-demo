@@ -54,6 +54,7 @@ def presenter():
 @app.route('/chat', methods=['POST'])
 def chat():
     import time
+    personality_prompt = None  # also reported on the error path
     try:
         start_time = time.time()
 
@@ -64,6 +65,7 @@ def chat():
         # Get character prompt
         char_config = CHARACTERS.get(character, CHARACTERS['spongebob'])
         full_prompt = char_config['prompt'] + user_message
+        personality_prompt = char_config['prompt'].rsplit("User's message:", 1)[0].strip()
 
         # Generate response using Gemini
         gemini_start = time.time()
@@ -79,6 +81,7 @@ def chat():
             'success': True,
             'response': bot_response,
             'character': char_config['name'],
+            'personality_prompt': personality_prompt,
             'timing': {
                 'gemini': gemini_time,
                 'total': total_time
@@ -88,7 +91,8 @@ def chat():
     except Exception as e:
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': str(e),
+            'personality_prompt': personality_prompt
         }), 500
 
 @app.route('/generate-voice', methods=['POST'])
