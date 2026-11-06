@@ -3,7 +3,7 @@
 Persistent voice cloning server for SpongeBob AI demo
 Keeps model in memory for fast generation
 """
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, Response
 import torch
 from TTS.api import TTS
 import warnings
@@ -12,6 +12,8 @@ import os
 import wave
 import numpy as np
 import soundfile as sf
+import threading
+import time
 
 # Suppress warnings
 warnings.filterwarnings('ignore')
@@ -26,6 +28,28 @@ def patched_load(*args, **kwargs):
     kwargs['weights_only'] = False
     return original_torch_load(*args, **kwargs)
 torch.load = patched_load
+
+# XTTS's stream generator passes int token ids where the installed transformers expects tensors
+from transformers.generation.utils import GenerationMixin
+_orig_attention_mask = GenerationMixin._prepare_attention_mask_for_generation
+def _attention_mask_with_tensor_ids(self, inputs, pad_token_id, eos_token_id):
+    as_tensor = lambda v: v if v is None or torch.is_tensor(v) else torch.as_tensor(v, device=inputs.device)
+    return _orig_attention_mask(self, inputs, as_tensor(pad_token_id), as_tensor(eos_token_id))
+GenerationMixin._prepare_attention_mask_for_generation = _attention_mask_with_tensor_ids
+_orig_logits_processor = GenerationMixin._get_logits_processor
+def _logits_processor_with_special_tokens(self, generation_config, *args, **kwargs):
+    if not hasattr(generation_config, '_eos_token_tensor'):
+        self._prepare_special_tokens(generation_config, True, device=self.device)
+    return _orig_logits_processor(self, generation_config, *args, **kwargs)
+GenerationMixin._get_logits_processor = _logits_processor_with_special_tokens
+_orig_update_kwargs = GenerationMixin._update_model_kwargs_for_generation
+def _update_kwargs_with_cache_position(self, outputs, model_kwargs, *args, **kwargs):
+    model_kwargs.setdefault('cache_position', torch.zeros(1, dtype=torch.long))  # unused by XTTS's GPT
+    return _orig_update_kwargs(self, outputs, model_kwargs, *args, **kwargs)
+GenerationMixin._update_model_kwargs_for_generation = _update_kwargs_with_cache_position
+# Newer transformers fold the temperature/top-k/top-p warpers into _get_logits_processor
+from transformers import LogitsProcessorList
+GenerationMixin._get_logits_warper = lambda self, generation_config, *a, **k: LogitsProcessorList()
 
 app = Flask(__name__)
 
@@ -54,6 +78,11 @@ xtts = tts.synthesizer.tts_model
 _gpt_latent, _speaker_emb = xtts.get_conditioning_latents(audio_path=[VOICE_SAMPLE])
 with wave.open(VOICE_SAMPLE, 'rb') as _w:
     SAMPLE_SECONDS = _w.getnframes() / _w.getframerate()
+
+# The model is not thread-safe: one generation at a time
+_gen_lock = threading.Lock()
+# Metadata of streamed generations, keyed by output filename
+_stream_info = {}
 
 def tokenize(text):
     ids = xtts.tokenizer.encode(text, lang='en')
@@ -90,7 +119,6 @@ def tokenize_route():
 @app.route('/generate', methods=['POST'])
 def generate():
     """Generate speech with cloned voice"""
-    import time
     try:
         data = request.json
         text = data.get('text', '')
@@ -99,13 +127,13 @@ def generate():
         if not text:
             return jsonify({'success': False, 'error': 'No text provided'}), 400
 
-        start_time = time.time()
-
-        # Low temperature keeps the cartoon voice closest to the reference (A/B tested)
-        out = xtts.inference(
-            text, "en", _gpt_latent, _speaker_emb,
-            temperature=0.3, top_p=0.8, repetition_penalty=10.0, enable_text_splitting=True
-        )
+        with _gen_lock:
+            start_time = time.time()
+            # Low temperature keeps the cartoon voice closest to the reference (A/B tested)
+            out = xtts.inference(
+                text, "en", _gpt_latent, _speaker_emb,
+                temperature=0.3, top_p=0.8, repetition_penalty=10.0, enable_text_splitting=True
+            )
         sf.write(output_path, np.asarray(out["wav"], dtype=np.float32), xtts.config.audio.output_sample_rate)
 
         elapsed = time.time() - start_time
@@ -129,6 +157,56 @@ def generate():
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/generate-stream', methods=['POST'])
+def generate_stream():
+    """Stream int16 PCM chunks as XTTS produces them; save the full WAV at the end"""
+    data = request.json or {}
+    text = data.get('text', '')
+    output_path = data.get('output', 'output.wav')
+    if not text:
+        return jsonify({'success': False, 'error': 'No text provided'}), 400
+    sample_rate = xtts.config.audio.output_sample_rate
+
+    def stream():
+        with _gen_lock:
+            start = time.time()
+            first_chunk = None
+            chunks = []
+            for chunk in xtts.inference_stream(
+                text, "en", _gpt_latent, _speaker_emb, stream_chunk_size=20,
+                temperature=0.3, top_p=0.8, repetition_penalty=10.0, enable_text_splitting=True
+            ):
+                if first_chunk is None:
+                    first_chunk = time.time() - start
+                wav = np.clip(chunk.detach().cpu().numpy().astype(np.float32), -1.0, 1.0)
+                chunks.append(wav)
+                yield (wav * 32767).astype('<i2').tobytes()
+            elapsed = time.time() - start
+            full = np.concatenate(chunks) if chunks else np.zeros(0, dtype=np.float32)
+            sf.write(output_path, full, sample_rate)
+            ids, pieces = tokenize(text)
+            _stream_info[os.path.basename(output_path)] = {
+                'success': True,
+                'generation_time': elapsed,
+                'first_chunk_time': first_chunk,
+                'token_ids': ids,
+                'tokens': pieces,
+                'sample_rate': sample_rate,
+                'num_samples': len(full),
+                'duration': len(full) / sample_rate
+            }
+            print(f"Streamed voice: first chunk {first_chunk:.2f}s, total {elapsed:.2f}s", file=sys.stderr)
+
+    return Response(stream(), mimetype='application/octet-stream',
+                    headers={'X-Sample-Rate': str(sample_rate)})
+
+@app.route('/generate-info', methods=['GET'])
+def generate_info():
+    info = _stream_info.get(os.path.basename(request.args.get('output', '')))
+    if not info:
+        return jsonify({'success': False, 'error': 'No info for that output (still generating?)'}), 404
+    return jsonify(info)
 
 @app.route('/health', methods=['GET'])
 def health():

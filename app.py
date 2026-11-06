@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, Response
 import google.generativeai as genai
 import os
 import subprocess
@@ -180,6 +180,67 @@ def generate_voice():
 
 VOICE_SERVER = 'http://127.0.0.1:5001'
 VOICE_OFFLINE = {'success': False, 'error': 'voice server offline'}
+
+@app.route('/generate-voice-stream', methods=['POST'])
+def generate_voice_stream():
+    """Stream int16 PCM of the cloned voice as it is generated; the WAV is saved at X-Audio-Url"""
+    text = (request.json or {}).get('text', '')
+    if not text:
+        return jsonify({'success': False, 'error': 'No text provided'}), 400
+    audio_id = str(uuid.uuid4())
+    os.makedirs('static/audio', exist_ok=True)
+    try:
+        upstream = requests.post(
+            f'{VOICE_SERVER}/generate-stream',
+            json={'text': text, 'output': f'static/audio/{audio_id}.wav'},
+            stream=True, timeout=(5, 120)
+        )
+    except requests.exceptions.RequestException:
+        return jsonify(VOICE_OFFLINE), 503
+    if upstream.status_code != 200:
+        upstream.close()
+        return jsonify({'success': False, 'error': 'Voice generation failed'}), 500
+
+    def relay():
+        try:
+            yield from upstream.iter_content(chunk_size=None)
+        finally:
+            upstream.close()
+
+    return Response(relay(), mimetype='application/octet-stream', headers={
+        'X-Audio-Url': f'/static/audio/{audio_id}.wav',
+        'X-Sample-Rate': upstream.headers.get('X-Sample-Rate', '24000'),
+        'Cache-Control': 'no-store',
+        'X-Accel-Buffering': 'no'
+    })
+
+@app.route('/voice-info')
+def voice_info():
+    """Metadata of a streamed generation, shaped like /generate-voice's response"""
+    audio_url = request.args.get('audio_url', '')
+    try:
+        r = requests.get(f'{VOICE_SERVER}/generate-info', params={'output': os.path.basename(audio_url)}, timeout=5)
+    except requests.exceptions.RequestException:
+        return jsonify(VOICE_OFFLINE), 503
+    info = r.json() if r.status_code == 200 else None
+    if not info or not info.get('success'):
+        return jsonify({'success': False, 'error': 'Voice info not available'}), 404
+    gen = info['generation_time']
+    return jsonify({
+        'success': True,
+        'audio_url': audio_url,
+        'token_ids': info['token_ids'],
+        'tokens': info['tokens'],
+        'sample_rate': info['sample_rate'],
+        'num_samples': info['num_samples'],
+        'duration': info['duration'],
+        'timing': {
+            'voice_generation': gen,
+            'first_chunk': info['first_chunk_time'],
+            'total': gen,
+            'network_overhead': 0
+        }
+    })
 
 def voice_proxy(method, path, **kwargs):
     try:
