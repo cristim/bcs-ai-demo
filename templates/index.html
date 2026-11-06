@@ -203,7 +203,6 @@
             const recognition = new SpeechRecognitionApi();
             recognition.lang = 'en-US';
             recognition.interimResults = true;
-            if ('processLocally' in recognition) recognition.processLocally = true;
 
             let listening = false;
             let transcript = '';
@@ -220,26 +219,23 @@
             };
 
             recognition.onerror = (event) => {
-                // On-device recognition needs a language pack; fall back to the cloud service once
-                if (event.error === 'language-not-supported' && recognition.processLocally) {
-                    recognition.processLocally = false;
-                    recognition.onend = () => { recognition.onend = onEnd; recognition.start(); };
-                    return;
-                }
                 setListening(false);
+                console.warn('Speech recognition error:', event.error, event.message);
                 if (event.error === 'not-allowed') {
                     addMessage('Error', 'Please allow the microphone to talk to me!', 'bot-message error');
-                } else {
-                    console.warn('Speech recognition error:', event.error);
+                } else if (event.error !== 'no-speech' && event.error !== 'aborted') {
+                    addMessage('Error', `Speech recognition failed: ${event.error}`, 'bot-message error');
                 }
             };
 
-            const onEnd = () => {
+            recognition.onaudiostart = () => console.info('Speech recognition: microphone audio started');
+            recognition.onspeechstart = () => console.info('Speech recognition: speech detected');
+
+            recognition.onend = () => {
                 const wasListening = listening;
                 setListening(false);
                 if (wasListening && transcript.trim()) sendMessage();
             };
-            recognition.onend = onEnd;
 
             micBtn.hidden = false;
             micBtn.addEventListener('click', () => {
