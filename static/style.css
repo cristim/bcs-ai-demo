@@ -498,7 +498,7 @@ header h1 {
 .bubbles { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
 .bubbles span {
     position: absolute;
-    bottom: -60px;
+    bottom: -100px;
     left: var(--l);
     width: var(--s);
     height: var(--s);
@@ -513,7 +513,7 @@ header h1 {
     10%  { opacity: 1; }
     50%  { transform: translate(15px, -55vh); }
     90%  { opacity: 1; }
-    100% { transform: translate(-10px, calc(-100vh - 80px)); opacity: 0; }
+    100% { transform: translate(-10px, calc(-100vh - 140px)); opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
     .bubbles span { animation: none; bottom: auto; top: calc(var(--l) * 0.9); }
