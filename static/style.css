@@ -351,24 +351,57 @@ header h1 {
 }
 
 
-/* Behind-the-scenes reveal overlay */
+/* Behind-the-scenes reveal: docked above the chat, which shrinks to fit below it */
+body:has(#revealPanel:not([hidden])) {
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 14px;
+    height: 100vh;
+}
+body:has(#revealPanel:not([hidden])) .container {
+    flex: 1 1 0;
+    min-height: 0;
+    height: auto;
+    max-height: none;
+}
 .reveal {
-    position: fixed;
-    inset: 0;
-    z-index: 100;
+    width: 100%;
+    max-width: 1200px;
+    max-height: 48vh;
+    flex-shrink: 0;
     background: rgba(20, 16, 50, 0.96);
     color: white;
     overflow-y: auto;
-    padding: 30px;
+    padding: 16px 22px;
+    border-radius: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
 }
-.reveal[hidden] { display: none; }
-.reveal-inner { max-width: 1400px; margin: 0 auto; }
-.reveal h2 { font-size: 2.2em; margin-bottom: 20px; text-align: center; }
-.reveal-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-.reveal-card { background: rgba(255, 255, 255, 0.1); border-radius: 18px; padding: 24px; }
-.reveal-card h3 { font-size: 1.8em; color: #ffd700; margin-bottom: 14px; }
-.reveal-label { font-size: 1.3em; margin-top: 14px; color: #cfd6ff; }
-.reveal-quote { font-size: 1.8em; font-weight: bold; margin-top: 6px; }
+.reveal-inner { margin: 0 auto; }
+.reveal h2 { font-size: 1.5em; margin-bottom: 10px; text-align: center; }
+.reveal-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.reveal-card { background: rgba(255, 255, 255, 0.1); border-radius: 14px; padding: 14px 18px; }
+.reveal-card h3 { font-size: 1.3em; color: #ffd700; margin-bottom: 8px; }
+.reveal-label { font-size: 1em; margin-top: 8px; color: #cfd6ff; }
+.reveal-quote { font-size: 1.25em; font-weight: bold; margin-top: 4px; }
+.reveal-btn {
+    position: absolute;
+    top: 50%;
+    right: 24px;
+    transform: translateY(-50%);
+    padding: 10px 16px;
+    border: 2px solid rgba(255, 255, 255, 0.7);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    font: inherit;
+    font-weight: bold;
+    cursor: pointer;
+}
+.reveal-btn[aria-pressed="true"] { background: #ffd700; border-color: #ffd700; color: #333; }
+@media (max-width: 800px) {
+    .reveal-cols { grid-template-columns: 1fr; }
+    .reveal-btn { position: static; transform: none; margin-top: 10px; }
+}
 .reveal-prompt {
     font-family: inherit;
     font-size: 1.05em;
@@ -377,12 +410,12 @@ header h1 {
     border-radius: 10px;
     padding: 12px;
     margin-top: 6px;
-    max-height: 32vh;
+    max-height: 14vh;
     overflow-y: auto;
 }
-.reveal-explain { font-size: 1.5em; margin-top: 16px; }
-.reveal-time { font-size: 1.6em; margin-top: 16px; color: #7dffb4; }
-.reveal-note { font-size: 1.4em; text-align: center; margin: 20px 0; color: #cfd6ff; }
+.reveal-explain { font-size: 1.05em; margin-top: 8px; }
+.reveal-time { font-size: 1.15em; margin-top: 8px; color: #7dffb4; }
+.reveal-note { font-size: 1em; text-align: center; margin: 8px 0 0; color: #cfd6ff; }
 @media (max-width: 900px) { .reveal-cols { grid-template-columns: 1fr; } }
 
 

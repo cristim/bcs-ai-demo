@@ -7,10 +7,36 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+    <div id="revealPanel" class="reveal" hidden>
+        <div class="reveal-inner">
+            <h2>🔍 Behind the scenes: how did SpongeBob answer?</h2>
+            <p id="revealEmpty" class="reveal-note">Ask SpongeBob something first, then look inside his brain!</p>
+            <div id="revealBody" class="reveal-cols">
+                <section class="reveal-card">
+                    <h3>🧠 1. The TEXT brain: what to SAY</h3>
+                    <p class="reveal-label">Your question became numbers:</p>
+                    <p id="revealQuestion" class="reveal-quote"></p>
+                    <p class="reveal-label">The AI got secret instructions about being SpongeBob (the personality prompt):</p>
+                    <pre id="revealPrompt" class="reveal-prompt"></pre>
+                    <p class="reveal-explain">It predicts the answer word by word, like a super-fast guessing game.</p>
+                    <p class="reveal-time">Thinking time: <strong id="revealGemini"></strong></p>
+                </section>
+                <section class="reveal-card">
+                    <h3>🎙️ 2. The VOICE clone: HOW to say it</h3>
+                    <p class="reveal-label">These words were sent to the voice AI:</p>
+                    <p id="revealVoiceText" class="reveal-quote"></p>
+                    <p class="reveal-explain">It learned the number patterns of how SpongeBob's voice sounds, so it can say brand new words in his voice.</p>
+                    <p class="reveal-time">Voice-making time: <strong id="revealVoiceTime"></strong></p>
+                </section>
+            </div>
+            <p class="reveal-note">Text AI predicts WHAT to say. Voice AI predicts HOW to say it. All with numbers and patterns! (press R or Esc to close)</p>
+        </div>
+    </div>
     <div class="container">
         <header>
             <h1>🎭 Talk to SpongeBob AI!</h1>
             <p class="subtitle">See how AI learns to talk like your favorite character</p>
+            <button id="revealBtn" class="reveal-btn" type="button" aria-pressed="false" title="Show how SpongeBob answered (R)">🔍 Behind the scenes</button>
         </header>
 
         <div class="main-content">
@@ -45,32 +71,6 @@
                     <button id="sendBtn">Send</button>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <div id="revealPanel" class="reveal" hidden>
-        <div class="reveal-inner">
-            <h2>🔍 Behind the scenes: how did SpongeBob answer?</h2>
-            <p id="revealEmpty" class="reveal-note">Ask SpongeBob something first, then look inside his brain!</p>
-            <div id="revealBody" class="reveal-cols">
-                <section class="reveal-card">
-                    <h3>🧠 1. The TEXT brain: what to SAY</h3>
-                    <p class="reveal-label">Your question became numbers:</p>
-                    <p id="revealQuestion" class="reveal-quote"></p>
-                    <p class="reveal-label">The AI got secret instructions about being SpongeBob (the personality prompt):</p>
-                    <pre id="revealPrompt" class="reveal-prompt"></pre>
-                    <p class="reveal-explain">It predicts the answer word by word, like a super-fast guessing game.</p>
-                    <p class="reveal-time">Thinking time: <strong id="revealGemini"></strong></p>
-                </section>
-                <section class="reveal-card">
-                    <h3>🎙️ 2. The VOICE clone: HOW to say it</h3>
-                    <p class="reveal-label">These words were sent to the voice AI:</p>
-                    <p id="revealVoiceText" class="reveal-quote"></p>
-                    <p class="reveal-explain">It learned the number patterns of how SpongeBob's voice sounds, so it can say brand new words in his voice.</p>
-                    <p class="reveal-time">Voice-making time: <strong id="revealVoiceTime"></strong></p>
-                </section>
-            </div>
-            <p class="reveal-note">Text AI predicts WHAT to say. Voice AI predicts HOW to say it. All with numbers and patterns! (click or press Esc to close)</p>
         </div>
     </div>
 
@@ -238,6 +238,7 @@
 
         function setReveal(on) {
             revealPanel.hidden = !on;
+            document.getElementById('revealBtn').setAttribute('aria-pressed', String(on));
             if (on) renderReveal();
             broadcastStatus();
         }
@@ -262,7 +263,7 @@
             if (e.target === userInput || e.ctrlKey || e.metaKey || e.altKey) return;
             if (e.key === 'r' || e.key === 'R') setReveal(revealPanel.hidden);
         });
-        revealPanel.addEventListener('click', () => setReveal(false));
+        document.getElementById('revealBtn').addEventListener('click', () => setReveal(revealPanel.hidden));
 
         function askFromPresenter(text) {
             if (state !== 'idle' || !String(text || '').trim()) return;
