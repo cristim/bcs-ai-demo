@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpongeBob Demo - Presenter</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='presenter.css') }}">
+</head>
+<body>
+    <div class="layout">
+        <aside class="sidebar">
+            <section class="card">
+                <h1>Demo timer</h1>
+                <div id="timer" class="timer-readout">0:00</div>
+                <div class="timer-buttons">
+                    <button id="timerToggle" class="primary">Start</button>
+                    <button id="timerReset">Reset</button>
+                </div>
+            </section>
+            <section class="card">
+                <h1>Grade</h1>
+                <div id="grades" class="grades"></div>
+            </section>
+            <section class="card">
+                <h1>Stages</h1>
+                <ul id="stageList" class="stage-list"></ul>
+            </section>
+        </aside>
+
+        <main class="main">
+            <section class="card">
+                <h2 id="stageTitle"></h2>
+                <ol id="points" class="points"></ol>
+            </section>
+            <section class="card teaching">
+                <h3>Key teaching moment</h3>
+                <p id="teaching"></p>
+            </section>
+            <section class="card tips-grid">
+                <div><h3>Safety nets</h3><ul id="tipSafety"></ul></div>
+                <div><h3>If running long</h3><ul id="tipLong"></ul></div>
+                <div><h3>If running short</h3><ul id="tipShort"></ul></div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        // Presenter page for the 8-minute demo. Open on the second screen;
+        // the audience display is "/". Source of truth: DEMO_SCRIPT_8MIN.md.
+
+        const TOTAL_SECONDS = 8 * 60;
+        const GRADES = ['1-2', '3-4', '5-6'];
+        const DEFAULT_GRADE = '3-4'; // the script "as written"
+
+        // Per stage: default content is grades 3-4. `grades` holds only the
+        // fields where the script's Grade-Level Adaptations differ.
+        const STAGES = [
+            {
+                id: 'hook', title: 'Hook & First Demo', range: '0:00-2:00', start: 0, end: 120,
+                points: [
+                    'Ask: "How many of you have watched SpongeBob SquarePants?" Wait for hands.',
+                    'This is AI SpongeBob, not the real one. The AI learned to think, talk AND sound like him.',
+                    'Show the website and send the opening line (Hi SpongeBob! We have students from BCS here to meet you!). Let the audio play.',
+                    'How it works: the AI turns everything SpongeBob knows into NUMBERS, millions of them, linked like a giant puzzle.',
+                    'When you ask a question it looks at the number patterns and predicts what SpongeBob would say next. Like reading every script a thousand times, but with math.'
+                ],
+                teaching: 'At about 1:30: AI uses numbers and patterns to predict words.',
+                safety: [
+                    'Tech fails: play the pre-recorded audio file.',
+                    'Tech fails: pivot to "What could go wrong with this technology?"',
+                    'Tech fails: show screenshots of previous conversations.'
+                ],
+                long: ['Keep the intro short and go straight to the first question.'],
+                short: [],
+                grades: {
+                    '1-2': {
+                        points: [
+                            'Ask: "Who has watched SpongeBob?" Wait for hands.',
+                            'Say: "This is a computer pretending to be SpongeBob." Real vs. FAKE.',
+                            'Send the opening line and let the audio play.',
+                            'Guessing game: the computer played a guessing game with SpongeBob\'s words millions of times. Word by word, it builds the answer.'
+                        ],
+                        teaching: 'A computer pretending to be SpongeBob: real vs. fake.'
+                    },
+                    '5-6': {
+                        points: [
+                            'Same hook, then ask: "How do you think this works?" Take a guess or two.',
+                            'Numbers and patterns: the AI predicts the next word from probabilities.',
+                            'Name it: this uses machine learning models called transformers and neural networks.'
+                        ]
+                    }
+                }
+            },
+            {
+                id: 'qa', title: 'Student Q&A', range: '2:00-5:00', start: 120, end: 300,
+                points: [
+                    '"Here\'s the fun part: YOU ask SpongeBob questions! Raise your hand!"',
+                    'Take 4-5 questions. Read each aloud before sending so everyone hears it.',
+                    'Pick diverse questions: funny, serious, tricky. Help shy kids: "So you want to ask about...?"',
+                    'Let the voice play for every answer. React: "Ha! Did you hear that?"',
+                    'After 2-3 questions, mini-lesson (15 s): "We gave the AI a personality prompt, special instructions that guide how it predicts words. So it predicts words SpongeBob would use!"',
+                    'Then 2-3 more questions.'
+                ],
+                teaching: 'After the 2nd question: the personality prompt guides the predictions.',
+                safety: [
+                    'Inappropriate question: "That\'s not a question SpongeBob would answer!"',
+                    'Redirect: "Let\'s ask about his favorite activities instead."'
+                ],
+                long: ['Take 3 student questions instead of 5.'],
+                short: ['Add more student questions.', 'Let students type their own questions (supervised).'],
+                grades: {
+                    '1-2': {
+                        points: [
+                            '"Who wants to ask SpongeBob something?" 3 questions max.',
+                            'Read each question aloud, send it, and leave extra time for reactions.',
+                            'Mini-lesson in simple words: "We told the computer how SpongeBob talks, so it copies him."'
+                        ],
+                        teaching: 'We told the computer how SpongeBob talks, so it copies him.',
+                        long: ['Stay at 3 questions.']
+                    },
+                    '5-6': {
+                        points: [
+                            '"Your turn: ask SpongeBob anything!" Let students type their own questions.',
+                            'Take 4-5 questions: funny, serious, tricky.',
+                            'Mini-lesson: the personality prompt guides the predictions. The AI has two parts: one predicts what to SAY (text), another clones the VOICE. Both use number patterns.'
+                        ]
+                    }
+                }
+            },
+            {
+                id: 'reveal', title: 'Behind the Curtain', range: '5:00-6:00', start: 300, end: 360,
+                points: [
+                    '"Let me break down EXACTLY how this AI works."',
+                    'TEXT brain: your question is turned into numbers; the AI looks at millions of number patterns learned from SpongeBob data; it predicts word by word.',
+                    'VOICE clone: the AI studied SpongeBob\'s real voice recordings and learned the number patterns of how his voice sounds, so it can say NEW words in his voice.',
+                    'Wrap up: "TEXT AI predicts WHAT to say, VOICE AI predicts HOW to say it, all with numbers and patterns!"'
+                ],
+                teaching: 'At 6:00: two AI systems working together, a TEXT brain and a VOICE clone.',
+                safety: ['If the reveal panel will not open, just explain it out loud.'],
+                long: [],
+                short: ['Show the behind-the-scenes code and prompts.'],
+                grades: {
+                    '1-2': {
+                        points: [
+                            'Keep it very short: "One part of the computer thinks of the words. Another part makes the voice."',
+                            'Real vs. fake: this is not the real SpongeBob.'
+                        ],
+                        teaching: 'One part picks the words, one part makes the voice. Real vs. fake.'
+                    },
+                    '5-6': {
+                        points: [
+                            'Text brain: a Large Language Model (LLM), trained on huge amounts of text, predicts the next word.',
+                            'Voice clone: a model trained on recordings predicts the right sound patterns.',
+                            'Both are machine learning: transformers and neural networks. Ask: "How do you think this could be misused?"'
+                        ]
+                    }
+                }
+            },
+            {
+                id: 'rules', title: 'Three Rules', range: '6:00-7:00', start: 360, end: 420,
+                points: [
+                    '"If someone can make AI sound EXACTLY like SpongeBob, what else could it sound like?" Let students answer (teachers, parents, friends).',
+                    '"Anyone could make AI that sounds like your friend, your teacher, even your mom or dad."',
+                    '1. QUESTION IT: just because it SOUNDS or LOOKS real doesn\'t mean it IS real.',
+                    '2. CHECK IT: if a message asks for something weird (password, money, personal info), ALWAYS check face-to-face or on video call first.',
+                    '3. TELL A PARENT OR TEACHER: if something online feels off, tell a grown-up right away.',
+                    'Tone: warm but serious, parent-to-kids, not lecturing.'
+                ],
+                teaching: 'At 6:30: AI can be made to sound like ANYONE.',
+                safety: [
+                    'Students scared: "Remember, this is a TOOL, like a calculator."',
+                    '"We\'re learning about it so we can be smart and safe."',
+                    '"Adults are here to help keep you safe online."'
+                ],
+                long: ['Keep each rule to one sentence.'],
+                short: [],
+                grades: {
+                    '1-2': {
+                        points: [
+                            'Focus on ONE rule: "Ask a grown-up if something seems weird."',
+                            'Emphasize real vs. fake: a voice can sound real and still be fake.',
+                            'Give extra reaction time.'
+                        ],
+                        teaching: 'Ask a grown-up if something seems weird.'
+                    },
+                    '5-6': {
+                        points: [
+                            'Ask: "How do you think this could be misused?"',
+                            'All three rules, then discuss ethics, deepfakes and misinformation.',
+                            'Anyone can make AI sound like a friend, a teacher, a parent.'
+                        ],
+                        long: ['This can extend to 10 minutes total with the technical discussion.']
+                    }
+                }
+            },
+            {
+                id: 'detective', title: 'Detective Test & Closing', range: '7:00-8:00', start: 420, end: 480,
+                points: [
+                    'Detective challenge (30 s): "You get a voice message that sounds EXACTLY like your friend asking for your Roblox password. What do you do?"',
+                    'Take 1-2 quick answers and nod. Right answers: ask face-to-face at school; video call to check; tell my parents; don\'t share it.',
+                    'If someone says "just send it": "Ah, that\'s the tricky part! Even if it SOUNDS like them, always verify first!"',
+                    'Final thought (30 s): AI is cool and fun, but you are growing up with it, so be smart about it. Remember the three rules. If unsure, ask a parent or teacher.',
+                    '"Anyone have a quick last question?" Take 1 if time, then: "Thanks everyone. Now you know the secret of AI SpongeBob!"'
+                ],
+                teaching: 'Even if it SOUNDS like them, always verify first!',
+                safety: ['Students scared: it is a TOOL, adults are here to help.'],
+                long: ['Shorten the detective challenge.', 'Skip the final questions.'],
+                short: ['Take extra questions.'],
+                grades: {
+                    '1-2': {
+                        points: [
+                            'Simple test: "A voice message sounds like your friend but feels weird. What do you do?" Answer: ask a grown-up.',
+                            'Close: "Real or fake? If it seems weird, ask a grown-up!"'
+                        ]
+                    },
+                    '5-6': {
+                        points: [
+                            'Detective challenge, then ask: "How would you prove it is really your friend?"',
+                            'Discuss deepfakes and misinformation briefly.',
+                            'Close with the three rules and an open question.'
+                        ],
+                        long: ['Cut the discussion to hold 8:00.']
+                    }
+                }
+            }
+        ];
+
+        let grade = DEFAULT_GRADE;
+        let selectedId = STAGES[0].id;
+
+        const $ = (id) => document.getElementById(id);
+
+        // ---- Content ----
+        function stageContent(stage) {
+            return Object.assign({}, stage, stage.grades[grade] || {});
+        }
+
+        function fillList(el, items) {
+            el.replaceChildren();
+            if (!items.length) {
+                const li = document.createElement('li');
+                li.className = 'empty';
+                li.textContent = 'Nothing special for this stage.';
+                el.appendChild(li);
+                return;
+            }
+            items.forEach((t) => {
+                const li = document.createElement('li');
+                li.textContent = t;
+                el.appendChild(li);
+            });
+        }
+
+        function renderDetail() {
+            const s = stageContent(STAGES.find((x) => x.id === selectedId));
+            $('stageTitle').textContent = `${s.title} (${s.range})`;
+            fillList($('points'), s.points);
+            $('teaching').textContent = s.teaching;
+            fillList($('tipSafety'), s.safety);
+            fillList($('tipLong'), s.long);
+            fillList($('tipShort'), s.short);
+        }
+
+        function renderStageList() {
+            const list = $('stageList');
+            list.replaceChildren();
+            const nowId = timerStarted() ? stageAt(elapsedSeconds()).id : null;
+            STAGES.forEach((s) => {
+                const li = document.createElement('li');
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.classList.toggle('selected', s.id === selectedId);
+                b.classList.toggle('now', s.id === nowId);
+                b.textContent = s.title;
+                const t = document.createElement('span');
+                t.className = 'stage-time';
+                t.textContent = s.range;
+                b.appendChild(t);
+                b.addEventListener('click', () => selectStage(s.id));
+                li.appendChild(b);
+                list.appendChild(li);
+            });
+        }
+
+        function selectStage(id) {
+            selectedId = id;
+            renderStageList();
+            renderDetail();
+        }
+
+        function renderGrades() {
+            const el = $('grades');
+            el.replaceChildren();
+            GRADES.forEach((g) => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.textContent = g;
+                b.classList.toggle('active', g === grade);
+                b.addEventListener('click', () => { grade = g; renderGrades(); renderDetail(); });
+                el.appendChild(b);
+            });
+        }
+
+        // ---- Timer ----
+        let accumulatedMs = 0;
+        let runningSince = null;
+        let lastAutoId = null;
+
+        const timerStarted = () => runningSince !== null || accumulatedMs > 0;
+        const elapsedSeconds = () =>
+            (accumulatedMs + (runningSince === null ? 0 : performance.now() - runningSince)) / 1000;
+
+        function stageAt(sec) {
+            return STAGES.find((s) => sec >= s.start && sec < s.end) || STAGES[STAGES.length - 1];
+        }
+
+        function fmt(sec) {
+            const s = Math.floor(Math.abs(sec));
+            return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+        }
+
+        function tick() {
+            const sec = elapsedSeconds();
+            const over = sec > TOTAL_SECONDS;
+            $('timer').textContent = over ? `+${fmt(sec - TOTAL_SECONDS)}` : fmt(sec);
+            $('timer').classList.toggle('over', over);
+            if (!timerStarted()) return;
+            // Follow the clock only when the time-matching stage changes, so a
+            // manual click stays put until the next stage begins.
+            const auto = stageAt(sec).id;
+            if (auto !== lastAutoId) {
+                lastAutoId = auto;
+                selectStage(auto);
+            }
+        }
+
+        $('timerToggle').addEventListener('click', () => {
+            if (runningSince === null) {
+                runningSince = performance.now();
+                $('timerToggle').textContent = 'Pause';
+            } else {
+                accumulatedMs += performance.now() - runningSince;
+                runningSince = null;
+                $('timerToggle').textContent = 'Resume';
+            }
+            tick();
+        });
+
+        $('timerReset').addEventListener('click', () => {
+            accumulatedMs = 0;
+            runningSince = null;
+            lastAutoId = null;
+            $('timerToggle').textContent = 'Start';
+            selectStage(STAGES[0].id);
+            tick();
+        });
+
+        setInterval(tick, 250);
+
+        renderGrades();
+        renderStageList();
+        renderDetail();
+        tick();
+    </script>
+</body>
+</html>

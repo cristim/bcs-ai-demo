@@ -47,6 +47,10 @@ User's message: """
 def index():
     return render_template('index.html')
 
+@app.route('/presenter')
+def presenter():
+    return render_template('presenter.html')
+
 @app.route('/chat', methods=['POST'])
 def chat():
     import time
