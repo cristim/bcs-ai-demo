@@ -24,10 +24,35 @@ function audioPlayer(src) {
     return a;
 }
 
-// Wraps canvases with a playhead line that follows `audio`; clicking a canvas seeks
-function withPlayhead(audio, ...canvases) {
+// Playback elsewhere on the page (live stream, chat replay buttons) moves the playheads of the
+// drawings with the same key: rvTrack(key, progress() -> 0..1 or null, active() -> bool)
+const tracks = new Map();
+let trackRaf = 0;
+function moveTrackedHeads() {
+    cancelAnimationFrame(trackRaf);
+    for (const [key, t] of tracks) {
+        const active = t.active();
+        const p = active ? t.progress() : null;
+        document.querySelectorAll('.playhead').forEach((h) => {
+            if (h.dataset.key !== key) return;
+            if (p != null) { h.style.left = `${Math.min(1, Math.max(0, p)) * 100}%`; h.style.opacity = 1; }
+            else if (!active) h.style.opacity = 0;
+        });
+        if (!active) tracks.delete(key);
+    }
+    if (tracks.size) trackRaf = requestAnimationFrame(moveTrackedHeads);
+}
+window.rvTrack = (key, progress, active) => {
+    if (!key) return;
+    tracks.set(key, { progress, active });
+    moveTrackedHeads();
+};
+
+// Wraps canvases with a playhead line that follows `audio` (and tracked playback of `key`); clicking seeks
+function withPlayhead(audio, key, ...canvases) {
     const wraps = canvases.map((c) => { const w = mk('div', 'wave-wrap'); w.append(c, mk('div', 'playhead')); return w; });
     const heads = wraps.map((w) => w.lastChild);
+    heads.forEach((h) => { h.dataset.key = key; });
     let raf = 0;
     const update = () => {
         const p = audio.duration ? audio.currentTime / audio.duration : 0;
@@ -208,7 +233,7 @@ const REVEAL_STEPS = [
             const a = audioPlayer(ex.mic.url);
             vis.append(a, mk('p', 'reveal-time', `Length: ${secs(ex.mic.duration)}`));
             const c = canvasEl(640, 90);
-            vis.append(...withPlayhead(a, c));
+            vis.append(...withPlayhead(a, ex.mic.url, c));
             drawWave(c, ex.mic.buf);
         }
     },
@@ -303,7 +328,7 @@ const REVEAL_STEPS = [
             if (d.timing && d.timing.first_chunk != null) vis.append(mk('p', 'reveal-time', `First sound after ${secs(d.timing.first_chunk)}`));
             if (!ex.outBuf) return note(vis, 'Drawing the sound...');
             const w = canvasEl(640, 90), s = canvasEl(640, 140);
-            const [ww, sw] = withPlayhead(a, w, s);
+            const [ww, sw] = withPlayhead(a, d.audio_url, w, s);
             vis.append(mk('p', 'reveal-label', 'Sound wave'), ww, mk('p', 'reveal-label', 'Spectrogram: time goes right, pitch goes up, brighter = louder'), sw);
             drawWave(w, ex.outBuf);
             drawSpectrogram(s, ex.outBuf);

@@ -370,8 +370,9 @@
             btn.addEventListener('click', (e) => {
                 e.stopPropagation(); // don't pin a reveal popup when replaying
                 if (currentAudio && !currentAudio.paused) currentAudio.pause();
-                currentAudio = new Audio(url);
-                currentAudio.play().catch((err) => console.warn('Replay failed:', err));
+                const a = currentAudio = new Audio(url);
+                a.play().catch((err) => console.warn('Replay failed:', err));
+                window.rvTrack?.(url, () => (a.duration ? a.currentTime / a.duration : null), () => !a.paused && !a.ended);
             });
             messageDiv.appendChild(btn);
         }
@@ -429,7 +430,7 @@
                 src.start(nextStart);
                 if (first) {
                     // Fire onstart when sound is really audible: the context may still be suspended
-                    const t0 = nextStart;
+                    const t0 = sa.t0 = nextStart;
                     const check = () => {
                         if (sa.paused) return;
                         if (ctx.state === 'running' && ctx.currentTime >= t0) sa.onstart?.();
@@ -495,6 +496,8 @@
             try {
                 const info = await (await fetch('/voice-info?audio_url=' + encodeURIComponent(audioUrl))).json();
                 if (!info.success) throw new Error(info.error || 'Voice info failed');
+                window.rvTrack?.(info.audio_url, () => (player.t0 != null ? (audioCtx.currentTime - player.t0) / info.duration : null),
+                    () => !player.paused && !player.ended);
                 return info;
             } catch (err) {
                 err.played = true; // audio is already playing: the caller must not repeat it
