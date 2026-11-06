@@ -518,3 +518,11 @@ header h1 {
 @media (prefers-reduced-motion: reduce) {
     .bubbles span { animation: none; bottom: auto; top: calc(var(--l) * 0.9); }
 }
+
+/* Original seashell cottage on the seabed, bottom-left behind the chat card */
+.seabed { position: fixed; left: 0; bottom: 0; width: 260px; z-index: 0; pointer-events: none; }
+.seabed svg { display: block; width: 100%; height: auto; }
+.seabed .sway { transform-box: fill-box; transform-origin: 50% 100%; animation: sway 4s ease-in-out infinite alternate; }
+.seabed .sway.slow { animation-duration: 5.5s; }
+@keyframes sway { from { transform: rotate(-6deg); } to { transform: rotate(6deg); } }
+@media (prefers-reduced-motion: reduce) { .seabed .sway { animation: none; } }
