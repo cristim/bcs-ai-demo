@@ -24,6 +24,28 @@ function audioPlayer(src) {
     return a;
 }
 
+// Wraps canvases with a playhead line that follows `audio`; clicking a canvas seeks
+function withPlayhead(audio, ...canvases) {
+    const wraps = canvases.map((c) => { const w = mk('div', 'wave-wrap'); w.append(c, mk('div', 'playhead')); return w; });
+    const heads = wraps.map((w) => w.lastChild);
+    let raf = 0;
+    const update = () => {
+        const p = audio.duration ? audio.currentTime / audio.duration : 0;
+        heads.forEach((h) => { h.style.left = `${p * 100}%`; h.style.opacity = audio.paused && !p ? 0 : 1; });
+        cancelAnimationFrame(raf);
+        if (!audio.paused) raf = requestAnimationFrame(update);
+    };
+    ['play', 'pause', 'seeked', 'ended', 'timeupdate'].forEach((ev) => audio.addEventListener(ev, update));
+    wraps.forEach((w) => w.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!audio.duration) { audio.play(); return; }
+        const r = w.getBoundingClientRect();
+        audio.currentTime = ((e.clientX - r.left) / r.width) * audio.duration;
+        if (audio.paused) audio.play();
+    }));
+    return wraps;
+}
+
 async function postJson(url, body) {
     const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     return r.json();
@@ -183,9 +205,10 @@ const REVEAL_STEPS = [
             gu.textContent = 'Recorded with getUserMedia + MediaRecorder at the same time as the browser speech recogniser; the waveform is the decoded clip (mono, 22,050 Hz), drawn as min/max per pixel.';
             if (ex.mic === undefined) return note(vis, 'Saving your recording...');
             if (!ex.mic) return note(vis, 'Your voice was heard, but the recording could not be saved (is the microphone blocked?).');
-            vis.append(audioPlayer(ex.mic.url), mk('p', 'reveal-time', `Length: ${secs(ex.mic.duration)}`));
+            const a = audioPlayer(ex.mic.url);
+            vis.append(a, mk('p', 'reveal-time', `Length: ${secs(ex.mic.duration)}`));
             const c = canvasEl(640, 90);
-            vis.append(c);
+            vis.append(...withPlayhead(a, c));
             drawWave(c, ex.mic.buf);
         }
     },
@@ -273,13 +296,15 @@ const REVEAL_STEPS = [
             if (ex.voiceStatus === 'error') return note(vis, `Voice AI problem: ${ex.voiceError}`);
             if (!ex.vd) return note(vis, 'Making the voice...');
             const d = ex.vd;
-            vis.append(audioPlayer(d.audio_url));
+            const a = audioPlayer(d.audio_url);
+            vis.append(a);
             vis.append(mk('p', 'reveal-time', `${d.sample_rate.toLocaleString()} numbers every second, ${d.num_samples.toLocaleString()} numbers in total (${secs(d.duration)} of sound)`));
             vis.append(mk('p', 'reveal-time', `Voice-making time: ${secs(ex.voice)}`));
             if (d.timing && d.timing.first_chunk != null) vis.append(mk('p', 'reveal-time', `First sound after ${secs(d.timing.first_chunk)}`));
             if (!ex.outBuf) return note(vis, 'Drawing the sound...');
             const w = canvasEl(640, 90), s = canvasEl(640, 140);
-            vis.append(mk('p', 'reveal-label', 'Sound wave'), w, mk('p', 'reveal-label', 'Spectrogram: time goes right, pitch goes up, brighter = louder'), s);
+            const [ww, sw] = withPlayhead(a, w, s);
+            vis.append(mk('p', 'reveal-label', 'Sound wave'), ww, mk('p', 'reveal-label', 'Spectrogram: time goes right, pitch goes up, brighter = louder'), sw);
             drawWave(w, ex.outBuf);
             drawSpectrogram(s, ex.outBuf);
         }

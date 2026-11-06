@@ -406,6 +406,8 @@ header h1 {
 .step-kid { font-size: 0.95em; color: #cfd6ff; margin-bottom: 6px; }
 .step-note { font-style: italic; color: #cfd6ff; margin-top: 6px; }
 .step-vis canvas { display: block; width: 100%; height: 70px; margin-top: 6px; border-radius: 8px; background: #0d0a26; }
+.wave-wrap { position: relative; cursor: pointer; }
+.playhead { position: absolute; top: 6px; bottom: 0; left: 0; width: 3px; margin-left: -1px; background: #fff; box-shadow: 0 0 8px #ffd700; border-radius: 2px; opacity: 0; pointer-events: none; }
 .step-vis audio { width: 100%; height: 32px; margin-top: 6px; }
 .reveal-label { font-size: 0.9em; margin-top: 6px; color: #cfd6ff; }
 .reveal-quote { font-size: 1.05em; font-weight: bold; margin-top: 4px; }
