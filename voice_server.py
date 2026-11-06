@@ -10,6 +10,8 @@ import warnings
 import sys
 import os
 import wave
+import numpy as np
+import soundfile as sf
 
 # Suppress warnings
 warnings.filterwarnings('ignore')
@@ -99,12 +101,12 @@ def generate():
 
         start_time = time.time()
 
-        tts.tts_to_file(
-            text=text,
-            speaker_wav=VOICE_SAMPLE,
-            language="en",
-            file_path=output_path
+        # Low temperature keeps the cartoon voice closest to the reference (A/B tested)
+        out = xtts.inference(
+            text, "en", _gpt_latent, _speaker_emb,
+            temperature=0.3, top_p=0.8, repetition_penalty=10.0, enable_text_splitting=True
         )
+        sf.write(output_path, np.asarray(out["wav"], dtype=np.float32), xtts.config.audio.output_sample_rate)
 
         elapsed = time.time() - start_time
         print(f"Voice generation took {elapsed:.2f} seconds", file=sys.stderr)
