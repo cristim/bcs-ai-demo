@@ -42,7 +42,9 @@ tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
 print(f"Model loaded on {device} and ready!", file=sys.stderr)
 
 # Voice sample path (6-30 seconds optimal for XTTS-v2)
-VOICE_SAMPLE = "spongebob-sample-with-laugh.wav"  # Original + 3s laugh sound effect
+VOICE_SAMPLE = os.getenv("VOICE_SAMPLE", "spongebob-sample-with-laugh.wav")  # Original + 3s laugh sound effect
+if not os.path.isfile(VOICE_SAMPLE):
+    sys.exit(f"Voice sample not found: {VOICE_SAMPLE} (it is gitignored; provide it or set VOICE_SAMPLE)")
 
 @app.route('/generate', methods=['POST'])
 def generate():
