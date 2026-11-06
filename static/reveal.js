@@ -276,6 +276,7 @@ const REVEAL_STEPS = [
             vis.append(audioPlayer(d.audio_url));
             vis.append(mk('p', 'reveal-time', `${d.sample_rate.toLocaleString()} numbers every second, ${d.num_samples.toLocaleString()} numbers in total (${secs(d.duration)} of sound)`));
             vis.append(mk('p', 'reveal-time', `Voice-making time: ${secs(ex.voice)}`));
+            if (d.timing && d.timing.first_chunk != null) vis.append(mk('p', 'reveal-time', `First sound after ${secs(d.timing.first_chunk)}`));
             if (!ex.outBuf) return note(vis, 'Drawing the sound...');
             const w = canvasEl(640, 90), s = canvasEl(640, 140);
             vis.append(mk('p', 'reveal-label', 'Sound wave'), w, mk('p', 'reveal-label', 'Spectrogram: time goes right, pitch goes up, brighter = louder'), s);

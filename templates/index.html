@@ -380,8 +380,131 @@
             return data;
         }
 
-        // Cloned voice function
+        // ---- Streamed playback: raw int16 PCM chunks scheduled back-to-back on one AudioContext ----
+        let audioCtx = null;
+
+        function getAudioCtx() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+            return audioCtx;
+        }
+
+        // Stands in for currentAudio while streamed audio plays: paused/ended flags,
+        // pause() and 'ended'/'pause' events are all the other code relies on.
+        function createStreamPlayer(ctx) {
+            const sa = new EventTarget();
+            const sources = new Set();
+            let nextStart = 0, done = false;
+            Object.assign(sa, { paused: false, ended: false });
+            const finish = (ev) => {
+                if (sa.ended || sa.paused) return;
+                if (ev === 'pause') sa.paused = true; else sa.ended = true;
+                sa.dispatchEvent(new Event(ev));
+            };
+            sa.pause = () => {
+                sources.forEach((src) => { src.onended = null; try { src.stop(); } catch (e) {} });
+                sources.clear();
+                finish('pause');
+            };
+            sa.push = (samples, sampleRate) => {
+                if (sa.paused) return;
+                const buf = ctx.createBuffer(1, samples.length, sampleRate);
+                buf.copyToChannel(samples, 0);
+                const src = ctx.createBufferSource();
+                src.buffer = buf;
+                src.connect(ctx.destination);
+                // initial lead (and re-lead after an underrun) so the next chunk is ready in time
+                nextStart = Math.max(nextStart, ctx.currentTime + (nextStart === 0 ? 0.15 : 0.05));
+                src.start(nextStart);
+                nextStart += buf.duration;
+                sources.add(src);
+                src.onended = () => {
+                    sources.delete(src);
+                    if (done && !sources.size) finish('ended');
+                };
+            };
+            sa.end = () => { done = true; if (!sources.size) finish('ended'); };
+            return sa;
+        }
+
+        // Stream the reply; resolves with the /voice-info data once the stream has been received.
+        // Throws with err.played unset if nothing was played, so the caller can fall back.
+        async function speakStreamed(text) {
+            const ctx = getAudioCtx(); // on the user-gesture path
+            const response = await fetch('/generate-voice-stream', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: text })
+            });
+            if (!response.ok || !response.body) throw new Error('stream unavailable');
+            const audioUrl = response.headers.get('X-Audio-Url');
+            const sampleRate = parseInt(response.headers.get('X-Sample-Rate'), 10) || 24000;
+            const reader = response.body.getReader();
+            const player = createStreamPlayer(ctx);
+            let carry = new Uint8Array(0), started = false;
+            try {
+                for (;;) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    let bytes = value;
+                    if (carry.length) {
+                        bytes = new Uint8Array(carry.length + value.length);
+                        bytes.set(carry); bytes.set(value, carry.length);
+                    }
+                    const usable = bytes.length - (bytes.length % 2);
+                    carry = bytes.slice(usable);
+                    if (!usable) continue;
+                    const pcm = new Int16Array(bytes.buffer, bytes.byteOffset, usable / 2);
+                    const f32 = new Float32Array(pcm.length);
+                    for (let i = 0; i < pcm.length; i++) f32[i] = pcm[i] / 32768;
+                    if (!started) {
+                        started = true;
+                        if (currentAudio) currentAudio.pause();
+                        currentAudio = player;
+                        setState('talking');
+                    }
+                    player.push(f32, sampleRate);
+                }
+            } catch (err) {
+                if (!started) throw err;
+                console.warn('Voice stream broke after playback started:', err);
+            }
+            if (!started) throw new Error('empty voice stream');
+            player.end();
+            try {
+                const info = await (await fetch('/voice-info?audio_url=' + encodeURIComponent(audioUrl))).json();
+                if (!info.success) throw new Error(info.error || 'Voice info failed');
+                return info;
+            } catch (err) {
+                err.played = true; // audio is already playing: the caller must not repeat it
+                throw err;
+            }
+        }
+
         async function speakWithClonedVoice(text, ex) {
+            const t0 = performance.now();
+            let data = null;
+            try {
+                data = await speakStreamed(text);
+            } catch (err) {
+                console.warn('Streaming voice failed:', err);
+                if (err.played) {
+                    ex.voiceStatus = 'error';
+                    ex.voiceError = err.message;
+                    return null;
+                }
+            }
+            if (!data) return speakWithClonedVoiceBlocking(text, ex);
+            console.log(`🎙️  STREAMED VOICE: first sound after ${(data.timing.first_chunk * 1000).toFixed(0)}ms, total ${(data.timing.total * 1000).toFixed(0)}ms, request ${(performance.now() - t0).toFixed(0)}ms`);
+            ex.vd = data;
+            ex.voiceStatus = 'ok';
+            addVoiceChip(ex);
+            loadOutputSound(ex);
+            return data;
+        }
+
+        // Non-streamed fallback: wait for the whole WAV, then play it
+        async function speakWithClonedVoiceBlocking(text, ex) {
             try {
                 // Create audio element early (helps with autoplay policy)
                 currentAudio = new Audio();
